@@ -12,6 +12,8 @@ __pycache__/
 # Virtual environment
 
 venv/
+env/
+
 
 
 # Django-specific files
