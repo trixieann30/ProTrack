@@ -16,6 +16,11 @@
                 <div class="card-body p-4">
                     <form method="post" id="registerForm">
                         {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                             </div>
+                        {% endif %}
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name</label>
@@ -121,6 +126,11 @@
 
 {% block extra_js %}
 <script>
+window.addEventListener('load', function() {
+    console.log('Register page loaded');
+});
+
+
 document.getElementById('togglePassword1').addEventListener('click', function() {
     const passwordField = document.getElementById('{{ form.password1.id_for_label }}');
     const icon = this.querySelector('i');
