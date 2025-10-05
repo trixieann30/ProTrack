@@ -18,6 +18,10 @@ protrack_env/
 db.sqlite3
 media/
 
+# Environment variables
+.env
+.env.local
+
 # VS Code
 .vscode/
 

@@ -22,8 +22,10 @@ from django.views.generic import TemplateView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', TemplateView.as_view(template_name='home.html'), name='home'), # Looks fine, assuming home.html exists
-    path('accounts/', include('accounts.urls')),
+    path('', TemplateView.as_view(template_name='home.html'), name='home'),
+    path('accounts/', include('accounts.urls')),  # Your custom account URLs FIRST
+    path('accounts/', include('allauth.urls')),  # Google OAuth URLs - same path but loaded second
+    path('user/', include('accounts.urls')),
     path('dashboard/', include('dashboard.urls')),
 ]
 

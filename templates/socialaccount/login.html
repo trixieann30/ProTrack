@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign in with Google - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+.oauth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem 0;
+}
+
+.oauth-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    max-width: 500px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.oauth-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2.5rem 2rem;
+    text-align: center;
+    color: white;
+}
+
+.oauth-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+}
+
+.oauth-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1rem;
+}
+
+.oauth-body {
+    padding: 2.5rem 2rem;
+}
+
+.oauth-info {
+    background: #f8fafc;
+    border-left: 4px solid #667eea;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 2rem;
+}
+
+.oauth-info p {
+    margin: 0;
+    color: #374151;
+    line-height: 1.6;
+}
+
+.oauth-info strong {
+    color: #667eea;
+}
+
+.btn-google-confirm {
+    background: linear-gradient(135deg, #db4437 0%, #c1351d 100%);
+    border: none;
+    border-radius: 10px;
+    padding: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    color: white;
+    width: 100%;
+    font-size: 1.1rem;
+}
+
+.btn-google-confirm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(219, 68, 55, 0.3);
+    color: white;
+}
+
+.oauth-footer {
+    background: #f9fafb;
+    padding: 1.5rem 2rem;
+    text-align: center;
+    border-top: 1px solid #e5e7eb;
+}
+
+.oauth-footer a {
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.oauth-footer a:hover {
+    text-decoration: underline;
+}
+
+.google-icon {
+    width: 60px;
+    height: 60px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.google-icon i {
+    font-size: 2rem;
+    color: #db4437;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="oauth-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12">
+                <div class="oauth-card">
+                    <div class="oauth-header">
+                        <div class="google-icon">
+                            <i class="fab fa-google"></i>
+                        </div>
+                        <h2>Sign in with Google</h2>
+                        <p>Connect your Google account to ProTrack</p>
+                    </div>
+                    <div class="oauth-body">
+                        <div class="oauth-info">
+                            <p>
+                                You are about to sign in using a third party account from <strong>Google</strong>.
+                                Your email will be automatically verified.
+                            </p>
+                        </div>
+                        
+                        <form method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-google-confirm">
+                                <i class="fab fa-google me-2"></i>Continue with Google
+                            </button>
+                        </form>
+                    </div>
+                    <div class="oauth-footer">
+                        <p class="mb-0">
+                            Don't have an account? 
+                            <a href="{% url 'accounts:register' %}">Sign Up</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
