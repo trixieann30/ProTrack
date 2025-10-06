@@ -39,25 +39,61 @@ def profile(request):
     return render(request, 'accounts/profile.html', {'profile': profile})
 
 @login_required
+@login_required
 def edit_profile(request):
-    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    # Get the instances for both models
+    user_instance = request.user
+    profile_instance, created = UserProfile.objects.get_or_create(user=user_instance)
 
     if request.method == 'POST':
-        form = UserProfileForm(request.POST, instance=profile)
+        # CRITICAL: Pass BOTH request.POST (text data) and request.FILES (image data)
+        # We pass the UserProfile instance because the form's Meta class points to it.
+        form = UserProfileForm(request.POST, request.FILES, instance=profile_instance) 
+        
         if form.is_valid():
-            # Correct: Save and redirect ONLY if the form is valid
+            
+            # --- 1. Manually extract and save CustomUser fields ---
+            user_instance.first_name = form.cleaned_data['first_name']
+            user_instance.last_name = form.cleaned_data['last_name']
+            user_instance.phone_number = form.cleaned_data['phone_number']
+            user_instance.department = form.cleaned_data['department']
+            user_instance.position = form.cleaned_data['position']
+            user_instance.date_of_birth = form.cleaned_data['date_of_birth']
+            
+            # Handle profile picture update 
+            # If a new file was uploaded, form.cleaned_data['profile_picture'] will contain the File object
+            # If the field was left blank, it will be None
+            if form.cleaned_data['profile_picture']:
+                user_instance.profile_picture = form.cleaned_data['profile_picture']
+            # Note: You can add logic here to explicitly delete the old picture if needed, 
+            # but usually Django handles replacement automatically.
+            
+            user_instance.save() # Save the CustomUser changes
+            
+            # --- 2. Save the UserProfile fields ---
+            # The ModelForm save() method handles bio, skills, and certifications
             form.save() 
+            
             messages.success(request, 'Your profile has been updated!')
             return redirect('accounts:profile')
-        # If the form is NOT valid, the code skips this block and falls through
-        # to the final 'return render' statement, displaying the form with errors.
-
+    
     else:
-        # Correct: This runs for the initial GET request
-        form = UserProfileForm(instance=profile)
+        # For GET request, initialize the form with data from BOTH models
+        initial_data = {
+            # Initial data for CustomUser fields (which are manually defined on the form)
+            'first_name': user_instance.first_name,
+            'last_name': user_instance.last_name,
+            'phone_number': user_instance.phone_number,
+            'department': user_instance.department,
+            'position': user_instance.position,
+            'date_of_birth': user_instance.date_of_birth,
+            'profile_picture': user_instance.profile_picture # Used to pre-populate the file field (though often ignored by browsers)
+        }
+        
+        # Pass the initial data AND the UserProfile instance 
+        form = UserProfileForm(initial=initial_data, instance=profile_instance)
 
     return render(request, 'accounts/edit_profile.html', {'form': form})
-
 def custom_logout(request):
     logout(request)
     messages.success(request, 'You have been successfully logged out.')

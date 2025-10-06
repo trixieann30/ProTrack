@@ -46,9 +46,25 @@ class UserLoginForm(AuthenticationForm):
     )
 
 class UserProfileForm(forms.ModelForm):
+    # --- Fields from CustomUser Model (Manually Defined) ---
+    first_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    last_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    phone_number = forms.CharField(max_length=15, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    department = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    position = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    date_of_birth = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
+    
+    # CRITICAL: This is the file input field
+    profile_picture = forms.ImageField(
+        required=False, 
+        label='Profile Picture',
+        widget=forms.FileInput(attrs={'class': 'form-control'})
+    )
+
     class Meta:
         model = UserProfile
-        fields = ['bio', 'skills', 'certifications']
+        # --- Fields from UserProfile Model (Inherited) ---
+        fields = ['bio', 'skills', 'certifications'] 
         widgets = {
             'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'skills': forms.TextInput(attrs={'class': 'form-control'}),
