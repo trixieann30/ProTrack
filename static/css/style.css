@@ -822,9 +822,27 @@ footer {
 }
 
 .dashboard-user {
+    /* Existing styles: ensure it remains a flex container */
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1rem; /* Space between notifications bell and user info container */
+}
+.dashboard-info {
+    display: flex;
+    align-items: center;
+    gap: 2rem; /* Space between the user name and the avatar */
+}
+.dashboard-info .user-name {
+    font-size: 0.95rem;
+    font-weight: 400; /* Regular weight */
+    color: white !important; /* Matches header background color scheme */
+    margin: 0 0 0 .5rem !important;
+    /* Hide the name on very small screens (d-none d-md-inline from template handles this, 
+       but keeping this rule here for completeness if that class is removed) */
+}
+.dashboard-info .user-name strong {
+    font-weight: 600; /* Bolder name for prominence */
+    color: white !important;
 }
 
 .dashboard-notifications {
@@ -840,15 +858,15 @@ footer {
 }
 
 .dashboard-avatar {
+    /* Existing styles: Ensure consistency for the avatar */
     width: 40px;
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 5px solid rgba(255, 255, 255, 0.3);
     cursor: pointer;
     transition: all var(--transition-base);
 }
-
 .dashboard-avatar:hover {
     border-color: white;
     transform: scale(1.05);
