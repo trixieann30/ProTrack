@@ -80,6 +80,12 @@
     margin-bottom: 2rem;
 }
 
+/* Ensure page background always matches base */
+  .dashboard-wrapper,
+  .dashboard-content {
+    background: var(--content-bg) !important;
+  }
+
 @media (max-width: 1200px) {
     .dashboard-grid {
         grid-template-columns: 1fr;
