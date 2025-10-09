@@ -292,57 +292,113 @@
 {% block content %}
 <!-- Stats Cards Row -->
 <div class="stats-row">
-    <div class="stat-card">
-        <div class="stat-info">
-            <h3>{{ total_users|default:"243" }}</h3>
-            <p>Total Users</p>
-            <span class="stat-change">
-                <i class="fas fa-arrow-up"></i> 34% Higher
-            </span>
+    {% if user.user_type == 'admin' %}
+        <!-- Admin sees all stats -->
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>{{ total_users|default:"0" }}</h3>
+                <p>Total Users</p>
+                <span class="stat-change">
+                    <i class="fas fa-arrow-up"></i> All Users
+                </span>
+            </div>
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
         </div>
-        <div class="stat-icon">
-            <i class="fas fa-users"></i>
+        
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>{{ total_students|default:"0" }}</h3>
+                <p>Students</p>
+                <span class="stat-change">
+                    <i class="fas fa-arrow-up"></i> Active
+                </span>
+            </div>
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
         </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-info">
-            <h3>{{ total_students|default:"450" }}</h3>
-            <p>Students</p>
-            <span class="stat-change">
-                <i class="fas fa-arrow-up"></i> 22% Higher
-            </span>
+        
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>{{ total_employees|default:"0" }}</h3>
+                <p>Employees</p>
+                <span class="stat-change">
+                    <i class="fas fa-arrow-up"></i> Active
+                </span>
+            </div>
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                <i class="fas fa-briefcase"></i>
+            </div>
         </div>
-        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
-            <i class="fas fa-graduation-cap"></i>
+        
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>{{ total_admins|default:"0" }}</h3>
+                <p>Administrators</p>
+                <span class="stat-change">
+                    <i class="fas fa-shield-alt"></i> Admin
+                </span>
+            </div>
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <i class="fas fa-user-shield"></i>
+            </div>
         </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-info">
-            <h3>{{ total_employees|default:"176" }}</h3>
-            <p>Employees</p>
-            <span class="stat-change">
-                <i class="fas fa-arrow-up"></i> 8% Higher
-            </span>
+    {% else %}
+        <!-- Students and Employees see personalized stats -->
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>0</h3>
+                <p>My Training Sessions</p>
+                <span class="stat-change">
+                    <i class="fas fa-calendar"></i> Scheduled
+                </span>
+            </div>
+            <div class="stat-icon">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
         </div>
-        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
-            <i class="fas fa-briefcase"></i>
+        
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>0</h3>
+                <p>Certifications</p>
+                <span class="stat-change">
+                    <i class="fas fa-certificate"></i> Active
+                </span>
+            </div>
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                <i class="fas fa-certificate"></i>
+            </div>
         </div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-info">
-            <h3>{{ total_admins|default:"12" }}</h3>
-            <p>Administrators</p>
-            <span class="stat-change negative">
-                <i class="fas fa-arrow-down"></i> 2% Lower
-            </span>
+        
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>0</h3>
+                <p>Completed Hours</p>
+                <span class="stat-change">
+                    <i class="fas fa-clock"></i> This Month
+                </span>
+            </div>
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                <i class="fas fa-hourglass-half"></i>
+            </div>
         </div>
-        <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
-            <i class="fas fa-user-shield"></i>
+        
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>100%</h3>
+                <p>Profile Complete</p>
+                <span class="stat-change">
+                    <i class="fas fa-check-circle"></i> Updated
+                </span>
+            </div>
+            <div class="stat-icon" style="background: rgba(6, 182, 212, 0.1); color: #06b6d4;">
+                <i class="fas fa-user-check"></i>
+            </div>
         </div>
-    </div>
+    {% endif %}
 </div>
 
 <!-- Dashboard Grid -->

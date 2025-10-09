@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login as auth_login, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.views import LoginView
@@ -11,11 +11,24 @@ def register(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
+            # Save the user
             user = form.save()
+            
+            # Create user profile
             UserProfile.objects.create(user=user)
+            
+            # Auto-login: Authenticate and login the user
             username = form.cleaned_data.get('username')
-            messages.success(request, f'Account created for {username}! You can now log in.')
-            return redirect('accounts:login')
+            password = form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=password)
+            
+            if user is not None:
+                auth_login(request, user)
+                messages.success(request, f'Welcome {username}! Your account has been created successfully.')
+                return redirect('dashboard:dashboard')  # Redirect to dashboard
+            else:
+                messages.error(request, 'Account created but login failed. Please login manually.')
+                return redirect('accounts:login')
     else:
         form = UserRegistrationForm()
     
