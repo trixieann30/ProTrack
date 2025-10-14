@@ -1,0 +1,230 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Training - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Ensure the page uses the same base background */
+  .dashboard-wrapper, .dashboard-content { background: var(--content-bg) !important; }
+
+  /* Soft info alert that matches your palette */
+  .alert-soft-info {
+    background: rgba(6, 182, 212, 0.10);
+    color: #155e75;
+    border-left: 4px solid var(--info-color);
+  }
+
+  /* Placeholder panels */
+  .placeholder-panel {
+    height: 300px;
+    background: #f9fafb;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Progress bars consistent with tokens */
+  .progress { height: 8px; border-radius: 10px; }
+  .progress-primary   { background-color: var(--primary-color); }
+  .progress-success   { background-color: var(--success-color); }
+  .progress-warning   { background-color: var(--warning-color); }
+
+  /* Small square icon chip reused in Quick Actions */
+  .chip-icon {
+    width: 40px; height: 40px; font-size: 1rem;
+    border-radius: var(--radius-lg);
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(79,70,229,0.10); color: var(--primary-color);
+  }
+  .chip-icon.success { background: rgba(16,185,129,0.10); color: var(--success-color); }
+  .chip-icon.warn    { background: rgba(245,158,11,0.10); color: var(--warning-color); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-1">
+      <i class="fas fa-calendar-alt me-2" style="color: var(--primary-color);"></i>
+      Training Management
+    </h2>
+    <p class="text-muted mb-0">Manage and track your training sessions</p>
+  </div>
+  <button class="btn btn-primary">
+    <i class="fas fa-plus me-2"></i>Add Training
+  </button>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-row mb-4">
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>Completed</p>
+      <span class="stat-change">
+        <i class="fas fa-check-circle"></i> All done
+      </span>
+    </div>
+    <div class="stat-icon" style="background: rgba(16,185,129,0.10); color:#10b981;">
+      <i class="fas fa-check-double"></i>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>In Progress</p>
+      <span class="stat-change">
+        <i class="fas fa-spinner"></i> Active
+      </span>
+    </div>
+    <div class="stat-icon" style="background: rgba(245,158,11,0.10); color:#f59e0b;">
+      <i class="fas fa-tasks"></i>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>Scheduled</p>
+      <span class="stat-change">
+        <i class="fas fa-clock"></i> Upcoming
+      </span>
+    </div>
+    <div class="stat-icon">
+      <i class="fas fa-calendar-check"></i>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>Total Hours</p>
+      <span class="stat-change">
+        <i class="fas fa-hourglass-half"></i> Tracked
+      </span>
+    </div>
+    <div class="stat-icon" style="background: rgba(6,182,212,0.10); color:#06b6d4;">
+      <i class="fas fa-clock"></i>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="row">
+  <div class="col-lg-8">
+    <!-- Upcoming Sessions Card -->
+    <div class="card mb-4">
+      <div class="chart-header">
+        <h3>Upcoming Training Sessions</h3>
+        <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info alert-soft-info">
+          <i class="fas fa-info-circle me-2"></i>
+          Training management features will be implemented in future sprints.
+        </div>
+
+        <div class="text-center py-5">
+          <div class="mb-4 d-flex align-items-center justify-content-center rounded-circle"
+               style="width:80px; height:80px; background: rgba(79,70,229,0.10);">
+            <i class="fas fa-calendar-alt fa-2x" style="color: var(--primary-color);"></i>
+          </div>
+          <h5 class="text-muted mb-2">No training sessions scheduled</h5>
+          <p class="text-muted mb-4">Schedule your first training session to get started.</p>
+          <button class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Schedule Training
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Training Calendar Card -->
+    <div class="card">
+      <div class="chart-header">
+        <h3>Training Calendar</h3>
+        <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+      </div>
+      <div class="card-body">
+        <div class="placeholder-panel">
+          <div class="text-center">
+            <i class="fas fa-calendar fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Calendar view coming soon</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <!-- Training Statistics Card -->
+    <div class="card mb-4">
+      <div class="chart-header">
+        <h3>Statistics</h3>
+      </div>
+      <div class="card-body">
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">Completion Rate</span>
+            <strong style="color: var(--primary-color);">0%</strong>
+          </div>
+          <div class="progress">
+            <div class="progress-bar progress-primary" role="progressbar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">Attendance</span>
+            <strong style="color: var(--success-color);">0%</strong>
+          </div>
+          <div class="progress">
+            <div class="progress-bar progress-success" role="progressbar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="mb-0">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">Average Score</span>
+            <strong style="color: var(--warning-color);">N/A</strong>
+          </div>
+          <div class="progress">
+            <div class="progress-bar progress-warning" role="progressbar" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions Card -->
+    <div class="card">
+      <div class="chart-header">
+        <h3>Quick Actions</h3>
+      </div>
+      <ul class="task-list">
+        <li class="task-item">
+          <div class="chip-icon"><i class="fas fa-plus"></i></div>
+          <div class="task-text">
+            <strong>Schedule Training</strong>
+            <div class="task-date">Add new session</div>
+          </div>
+        </li>
+        <li class="task-item">
+          <div class="chip-icon success"><i class="fas fa-file-alt"></i></div>
+          <div class="task-text">
+            <strong>View Reports</strong>
+            <div class="task-date">Training analytics</div>
+          </div>
+        </li>
+        <li class="task-item">
+          <div class="chip-icon warn"><i class="fas fa-download"></i></div>
+          <div class="task-text">
+            <strong>Export Data</strong>
+            <div class="task-date">Download records</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
