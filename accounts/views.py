@@ -6,6 +6,10 @@ from django.contrib.auth.views import LoginView
 from .forms import UserRegistrationForm, UserLoginForm, UserProfileForm
 from .models import CustomUser, UserProfile
 from django.contrib.auth import logout
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils.crypto import get_random_string
+from django.urls import reverse
 
 def register(request):
     if request.method == 'POST':
@@ -25,7 +29,11 @@ def register(request):
             if user is not None:
                 auth_login(request, user)
                 messages.success(request, f'Welcome {username}! Your account has been created successfully.')
-                return redirect('dashboard:dashboard')  # Redirect to dashboard
+                # Redirect based on user type
+                if user.is_superuser:
+                    return redirect('dashboard:admin_dashboard')
+                else:
+                    return redirect('dashboard:user_dashboard')
             else:
                 messages.error(request, 'Account created but login failed. Please login manually.')
                 return redirect('accounts:login')
@@ -38,6 +46,13 @@ class CustomLoginView(LoginView):
     form_class = UserLoginForm
     template_name = 'accounts/login.html'
     redirect_authenticated_user = True
+    
+    def get_success_url(self):
+        # Redirect based on user role
+        if self.request.user.is_superuser:
+            return '/dashboard/admin/'
+        else:
+            return '/dashboard/user/'
     
     def form_valid(self, form):
         username = form.cleaned_data.get('username')
@@ -111,4 +126,73 @@ def custom_logout(request):
     logout(request)
     messages.success(request, 'You have been successfully logged out.')
     return redirect('home')
+
+@login_required
+def send_verification_email(request):
+    """Send email verification link to user"""
+    user = request.user
+    
+    # Check if already verified
+    if user.email_verified:
+        messages.info(request, 'Your email is already verified!')
+        return redirect('accounts:profile')
+    
+    # Generate verification token
+    token = get_random_string(64)
+    user.email_verification_token = token
+    user.save()
+    
+    # Build verification URL
+    verification_url = request.build_absolute_uri(
+        reverse('accounts:verify_email', kwargs={'token': token})
+    )
+    
+    # Email subject and message
+    subject = 'Verify Your Email - ProTrack'
+    message = f"""
+Hello {user.get_full_name() or user.username},
+
+Thank you for registering with ProTrack!
+
+Please verify your email address by clicking the link below:
+
+{verification_url}
+
+This link will expire in 24 hours.
+
+If you didn't create an account with ProTrack, please ignore this email.
+
+Best regards,
+The ProTrack Team
+    """
+    
+    try:
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+        messages.success(request, f'Verification email sent to {user.email}. Please check your inbox!')
+    except Exception as e:
+        messages.error(request, f'Failed to send email. Please try again later. Error: {str(e)}')
+    
+    return redirect('accounts:profile')
+
+@login_required
+def verify_email(request, token):
+    """Verify user's email with token"""
+    user = request.user
+    
+    if user.email_verification_token == token:
+        user.email_verified = True
+        user.email_verification_token = ''  # Clear the token
+        user.save()
+        messages.success(request, '✅ Your email has been verified successfully!')
+    else:
+        messages.error(request, 'Invalid or expired verification link.')
+    
+    return redirect('accounts:profile')
+
 # Create your views here.

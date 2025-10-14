@@ -123,11 +123,7 @@
               </p>
             </div>
 
-            {# If you're using django-allauth, change the form to a link to the provider url: 
-               <a href="{% provider_login_url 'google' %}" class="btn btn-google-confirm">
-                 <i class="fab fa-google me-2"></i>Continue with Google
-               </a>
-            #}
+            {# If you're using django-allauth, you can use provider_login_url tag here #}
             <form method="post">
               {% csrf_token %}
               <button type="submit" class="btn btn-google-confirm">

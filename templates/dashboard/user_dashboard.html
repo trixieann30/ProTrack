@@ -1,0 +1,326 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}My Dashboard - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Enhanced Stats Cards */
+.stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+}
+
+.stat-info h3 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: #1f2937;
+}
+
+.stat-info p {
+    margin: 0.25rem 0 0.5rem 0;
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.stat-change {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Chart Card */
+.chart-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.chart-header {
+    padding: 1.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.chart-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.chart-body {
+    padding: 2rem;
+    min-height: 300px;
+}
+
+/* Task Card */
+.task-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.task-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.task-item {
+    padding: 1.25rem 1.75rem;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: background 0.2s;
+}
+
+.task-item:hover {
+    background: #f9fafb;
+}
+
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.task-checkbox.checked {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: #10b981;
+    position: relative;
+}
+
+.task-checkbox.checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 0.75rem;
+}
+
+.task-text strong {
+    display: block;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.task-date {
+    font-size: 0.875rem;
+    color: #9ca3af;
+}
+
+.add-task-btn {
+    width: 100%;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 0 0 20px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-task-btn:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+/* Welcome Banner */
+.welcome-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 2rem;
+    color: white;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.welcome-banner h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.welcome-banner p {
+    margin: 0;
+    opacity: 0.9;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Welcome Banner -->
+<div class="welcome-banner">
+    <h2>Welcome back, {{ user.get_full_name|default:user.username }}! 👋</h2>
+    <p>Here's what's happening with your training and certifications today.</p>
+</div>
+
+<!-- Stats Cards Row -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>0</h3>
+            <p>My Training Sessions</p>
+            <span class="stat-change">
+                <i class="fas fa-calendar"></i> Scheduled
+            </span>
+        </div>
+        <div class="stat-icon">
+            <i class="fas fa-calendar-alt"></i>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>0</h3>
+            <p>Certifications</p>
+            <span class="stat-change">
+                <i class="fas fa-certificate"></i> Active
+            </span>
+        </div>
+        <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            <i class="fas fa-certificate"></i>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>0</h3>
+            <p>Completed Hours</p>
+            <span class="stat-change">
+                <i class="fas fa-clock"></i> This Month
+            </span>
+        </div>
+        <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+            <i class="fas fa-hourglass-half"></i>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>100%</h3>
+            <p>Profile Complete</p>
+            <span class="stat-change">
+                <i class="fas fa-check-circle"></i> Updated
+            </span>
+        </div>
+        <div class="stat-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
+            <i class="fas fa-user-check"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Grid -->
+<div class="dashboard-grid">
+    <!-- Chart Card -->
+    <div class="chart-card">
+        <div class="chart-header">
+            <h3>My Progress</h3>
+            <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+        </div>
+        <div class="chart-body">
+            <p class="text-muted">Your training progress will appear here</p>
+            <div style="height: 300px; background: #f9fafb; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-chart-line fa-3x text-muted"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Task Card -->
+    <div class="task-card">
+        <div class="chart-header">
+            <h3>Quick Actions</h3>
+            <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+        </div>
+        <ul class="task-list">
+            <li class="task-item">
+                <div class="task-checkbox"></div>
+                <div class="task-text">
+                    <strong>View Training Schedule</strong>
+                    <div class="task-date">Manage sessions</div>
+                </div>
+            </li>
+            <li class="task-item">
+                <div class="task-checkbox checked"></div>
+                <div class="task-text">
+                    <strong>Update Profile</strong>
+                    <div class="task-date">Personal info</div>
+                </div>
+            </li>
+            <li class="task-item">
+                <div class="task-checkbox"></div>
+                <div class="task-text">
+                    <strong>Manage Certifications</strong>
+                    <div class="task-date">Track expiry dates</div>
+                </div>
+            </li>
+        </ul>
+        <button class="add-task-btn">
+            <i class="fas fa-plus"></i>
+            Add Task
+        </button>
+    </div>
+</div>
+{% endblock %}

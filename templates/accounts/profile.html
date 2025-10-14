@@ -100,10 +100,13 @@
           </p>
 
           {% if not user.email_verified %}
-          <button class="btn btn-sm mt-2"
-                  style="background: rgba(79,70,229,0.10); color: var(--primary-color); border: none; padding: 0.5rem 1rem; border-radius: 8px;">
-            <i class="fas fa-envelope me-1"></i>Send Verification Email
-          </button>
+          <form method="post" action="{% url 'accounts:send_verification_email' %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm mt-2"
+                    style="background: rgba(79,70,229,0.10); color: var(--primary-color); border: none; padding: 0.5rem 1rem; border-radius: 8px;">
+              <i class="fas fa-envelope me-1"></i>Send Verification Email
+            </button>
+          </form>
           {% endif %}
         </div>
 

@@ -4,10 +4,16 @@ from django.contrib.auth import authenticate
 from .models import CustomUser, UserProfile
 
 class UserRegistrationForm(UserCreationForm):
+    # Exclude 'admin' from registration choices - only Employee and Student can register
+    USER_TYPE_CHOICES_REGISTRATION = (
+        ('student', 'Student'),
+        ('employee', 'Employee'),
+    )
+    
     email = forms.EmailField(required=True)
     first_name = forms.CharField(max_length=30, required=True)
     last_name = forms.CharField(max_length=30, required=True)
-    user_type = forms.ChoiceField(choices=CustomUser.USER_TYPE_CHOICES, required=True)
+    user_type = forms.ChoiceField(choices=USER_TYPE_CHOICES_REGISTRATION, required=True)
     phone_number = forms.CharField(max_length=15, required=False)
     department = forms.CharField(max_length=100, required=False)
 
