@@ -1,0 +1,242 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Certifications - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Match base background */
+  .dashboard-wrapper, .dashboard-content { background: var(--content-bg) !important; }
+
+  /* Soft info alert */
+  .alert-soft-info {
+    background: rgba(6,182,212,0.10);
+    color: #155e75;
+    border-left: 4px solid var(--info-color);
+  }
+
+  /* Neutral placeholders */
+  .placeholder-panel {
+    height: 250px;
+    background: #f9fafb;
+    border-radius: 10px;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  /* Icon chips (used in quick actions) */
+  .chip-icon {
+    width: 40px; height: 40px; font-size: 1rem;
+    border-radius: var(--radius-lg);
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(79,70,229,0.10); color: var(--primary-color);
+  }
+  .chip-icon.success { background: rgba(16,185,129,0.10); color: var(--success-color); }
+  .chip-icon.warn    { background: rgba(245,158,11,0.10); color: var(--warning-color); }
+  .chip-icon.danger  { background: rgba(239,68,68,0.10); color: var(--danger-color); }
+
+  /* Tiny color dots for categories */
+  .dot { width:10px; height:10px; border-radius:50%; }
+  .dot.primary { background: var(--primary-color); }
+  .dot.success { background: var(--success-color); }
+  .dot.warn    { background: var(--warning-color); }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-1">
+      <i class="fas fa-certificate me-2" style="color: var(--warning-color);"></i>
+      Certification Management
+    </h2>
+    <p class="text-muted mb-0">Track and manage your professional certifications</p>
+  </div>
+  <button class="btn btn-primary">
+    <i class="fas fa-plus me-2"></i>Add Certification
+  </button>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-row mb-4">
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>Active Certifications</p>
+      <span class="stat-change">
+        <i class="fas fa-check-circle"></i> Valid
+      </span>
+    </div>
+    <div class="stat-icon" style="background: rgba(16,185,129,0.10); color:#10b981;">
+      <i class="fas fa-certificate"></i>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>Expiring Soon</p>
+      <span class="stat-change negative">
+        <i class="fas fa-exclamation-triangle"></i> Attention
+      </span>
+    </div>
+    <div class="stat-icon" style="background: rgba(245,158,11,0.10); color:#f59e0b;">
+      <i class="fas fa-clock"></i>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>Expired</p>
+      <span class="stat-change negative">
+        <i class="fas fa-times-circle"></i> Renewal needed
+      </span>
+    </div>
+    <div class="stat-icon" style="background: rgba(239,68,68,0.10); color:#ef4444;">
+      <i class="fas fa-ban"></i>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <h3>0</h3>
+      <p>Total Certifications</p>
+      <span class="stat-change">
+        <i class="fas fa-list"></i> All time
+      </span>
+    </div>
+    <div class="stat-icon">
+      <i class="fas fa-award"></i>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="row">
+  <div class="col-lg-8">
+    <!-- Certifications List Card -->
+    <div class="card mb-4">
+      <div class="chart-header">
+        <h3>My Certifications</h3>
+        <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info alert-soft-info">
+          <i class="fas fa-info-circle me-2"></i>
+          Certification management features will be implemented in future sprints.
+        </div>
+
+        <div class="text-center py-5">
+          <div class="mb-4 d-flex align-items-center justify-content-center rounded-circle"
+               style="width:80px;height:80px;background: rgba(245,158,11,0.10); margin:0 auto;">
+            <i class="fas fa-certificate fa-2x" style="color: var(--warning-color);"></i>
+          </div>
+          <h5 class="text-muted mb-2">No certifications recorded</h5>
+          <p class="text-muted mb-4">Add your certifications to track their expiry dates.</p>
+          <button class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Add Certification
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Certification Timeline -->
+    <div class="card">
+      <div class="chart-header">
+        <h3>Certification Timeline</h3>
+        <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+      </div>
+      <div class="card-body">
+        <div class="placeholder-panel">
+          <div class="text-center">
+            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+            <p class="text-muted">Timeline view coming soon</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <!-- Expiry Alerts Card -->
+    <div class="card mb-4">
+      <div class="chart-header">
+        <h3>Expiry Alerts</h3>
+      </div>
+      <div class="card-body">
+        <div class="text-center py-4">
+          <i class="fas fa-bell-slash fa-2x text-muted mb-3"></i>
+          <p class="text-muted mb-0">No alerts at this time</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Certification Categories Card -->
+    <div class="card mb-4">
+      <div class="chart-header">
+        <h3>Categories</h3>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <div class="dot primary"></div>
+              <span>Technical</span>
+            </div>
+            <strong>0</strong>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <div class="dot success"></div>
+              <span>Professional</span>
+            </div>
+            <strong>0</strong>
+          </div>
+        </div>
+        <div class="mb-0">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <div class="dot warn"></div>
+              <span>Safety</span>
+            </div>
+            <strong>0</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions Card -->
+    <div class="card">
+      <div class="chart-header">
+        <h3>Quick Actions</h3>
+      </div>
+      <ul class="task-list">
+        <li class="task-item">
+          <div class="chip-icon"><i class="fas fa-upload"></i></div>
+          <div class="task-text">
+            <strong>Upload Certificate</strong>
+            <div class="task-date">Add document</div>
+          </div>
+        </li>
+        <li class="task-item">
+          <div class="chip-icon success"><i class="fas fa-sync"></i></div>
+          <div class="task-text">
+            <strong>Renew Certificate</strong>
+            <div class="task-date">Update expiry</div>
+          </div>
+        </li>
+        <li class="task-item">
+          <div class="chip-icon warn"><i class="fas fa-download"></i></div>
+          <div class="task-text">
+            <strong>Export Report</strong>
+            <div class="task-date">Download PDF</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
