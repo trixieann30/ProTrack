@@ -117,13 +117,13 @@
             <div class="dashboard-user">
                 <div class="user-actions">
                     <!-- Role Badge -->
-                    <div class="role-badge-header {{ user.user_type }}">
+                    <div class="role-badge-header {% if user.is_superuser %}admin{% else %}{{ user.user_type }}{% endif %}">
                         <i class="fas 
-                            {% if user.user_type == 'admin' %}fa-shield-alt
+                            {% if user.is_superuser %}fa-shield-alt
                             {% elif user.user_type == 'student' %}fa-graduation-cap
                             {% else %}fa-briefcase{% endif %}">
                         </i>
-                        {% if user.user_type == 'admin' %}Administrator
+                        {% if user.is_superuser %}Administrator
                         {% elif user.user_type == 'student' %}Student
                         {% else %}Employee{% endif %}
                     </div>

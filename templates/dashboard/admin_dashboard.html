@@ -67,31 +67,18 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-/* Role Badge Styles */
-.role-badge {
+/* Admin Badge */
+.admin-badge {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
     border-radius: 20px;
     font-weight: 600;
     font-size: 0.875rem;
     margin-bottom: 1.5rem;
-}
-
-.role-badge.admin {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: white;
-}
-
-.role-badge.student {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-}
-
-.role-badge.employee {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    color: white;
 }
 
 /* Data Table */
@@ -156,184 +143,68 @@
 {% endblock %}
 
 {% block content %}
-<!-- Role Badge -->
-<div class="role-badge {{ user.user_type }}">
-    <i class="fas 
-        {% if user.user_type == 'admin' %}fa-shield-alt
-        {% elif user.user_type == 'student' %}fa-graduation-cap
-        {% else %}fa-briefcase{% endif %}">
-    </i>
-    {% if user.user_type == 'admin' %}Administrator Dashboard
-    {% elif user.user_type == 'student' %}Student Dashboard
-    {% else %}Employee Dashboard{% endif %}
+<!-- Admin Badge -->
+<div class="admin-badge">
+    <i class="fas fa-shield-alt"></i>
+    Administrator Dashboard
 </div>
 
 <!-- Stats Cards Row -->
 <div class="stats-row">
-    {% if user.user_type == 'admin' %}
-        <!-- Admin Dashboard Stats -->
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>{{ total_users|default:"0" }}</h3>
-                <p>Total Users</p>
-                <span class="stat-change">
-                    <i class="fas fa-arrow-up"></i> All Users
-                </span>
-            </div>
-            <div class="stat-icon">
-                <i class="fas fa-users"></i>
-            </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ total_users|default:"0" }}</h3>
+            <p>Total Users</p>
+            <span class="stat-change">
+                <i class="fas fa-arrow-up"></i> All Users
+            </span>
         </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>{{ total_students|default:"0" }}</h3>
-                <p>Students</p>
-                <span class="stat-change">
-                    <i class="fas fa-arrow-up"></i> Active
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                <i class="fas fa-graduation-cap"></i>
-            </div>
+        <div class="stat-icon">
+            <i class="fas fa-users"></i>
         </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>{{ total_employees|default:"0" }}</h3>
-                <p>Employees</p>
-                <span class="stat-change">
-                    <i class="fas fa-arrow-up"></i> Active
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-                <i class="fas fa-briefcase"></i>
-            </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ total_students|default:"0" }}</h3>
+            <p>Students</p>
+            <span class="stat-change">
+                <i class="fas fa-arrow-up"></i> Active
+            </span>
         </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>{{ total_admins|default:"0" }}</h3>
-                <p>Administrators</p>
-                <span class="stat-change">
-                    <i class="fas fa-shield-alt"></i> Admin
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                <i class="fas fa-user-shield"></i>
-            </div>
+        <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            <i class="fas fa-graduation-cap"></i>
         </div>
-    {% elif user.user_type == 'student' %}
-        <!-- Student Dashboard Stats -->
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>0</h3>
-                <p>My Training Sessions</p>
-                <span class="stat-change">
-                    <i class="fas fa-calendar"></i> Scheduled
-                </span>
-            </div>
-            <div class="stat-icon">
-                <i class="fas fa-calendar-alt"></i>
-            </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ total_employees|default:"0" }}</h3>
+            <p>Employees</p>
+            <span class="stat-change">
+                <i class="fas fa-arrow-up"></i> Active
+            </span>
         </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>0</h3>
-                <p>Certifications</p>
-                <span class="stat-change">
-                    <i class="fas fa-certificate"></i> Active
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                <i class="fas fa-certificate"></i>
-            </div>
+        <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+            <i class="fas fa-briefcase"></i>
         </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>0</h3>
-                <p>Completed Hours</p>
-                <span class="stat-change">
-                    <i class="fas fa-clock"></i> This Month
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-                <i class="fas fa-hourglass-half"></i>
-            </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ total_admins|default:"0" }}</h3>
+            <p>Administrators</p>
+            <span class="stat-change">
+                <i class="fas fa-shield-alt"></i> Admin
+            </span>
         </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>100%</h3>
-                <p>Profile Complete</p>
-                <span class="stat-change">
-                    <i class="fas fa-check-circle"></i> Updated
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
-                <i class="fas fa-user-check"></i>
-            </div>
+        <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+            <i class="fas fa-user-shield"></i>
         </div>
-    {% else %}
-        <!-- Employee Dashboard Stats -->
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>0</h3>
-                <p>Training Sessions</p>
-                <span class="stat-change">
-                    <i class="fas fa-calendar"></i> Scheduled
-                </span>
-            </div>
-            <div class="stat-icon">
-                <i class="fas fa-calendar-alt"></i>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>0</h3>
-                <p>Skills Certified</p>
-                <span class="stat-change">
-                    <i class="fas fa-certificate"></i> Active
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                <i class="fas fa-certificate"></i>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>0</h3>
-                <p>Training Hours</p>
-                <span class="stat-change">
-                    <i class="fas fa-clock"></i> This Month
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-                <i class="fas fa-hourglass-half"></i>
-            </div>
-        </div>
-        
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>100%</h3>
-                <p>Profile Complete</p>
-                <span class="stat-change">
-                    <i class="fas fa-check-circle"></i> Updated
-                </span>
-            </div>
-            <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
-                <i class="fas fa-user-check"></i>
-            </div>
-        </div>
-    {% endif %}
+    </div>
 </div>
 
-{% if user.user_type == 'admin' %}
-<!-- Recent Users Table (Admin Only) -->
+<!-- Recent Users Table -->
 <div class="data-table">
     <div class="chart-header">
         <h3>Recent Users</h3>
@@ -376,5 +247,4 @@
         </tbody>
     </table>
 </div>
-{% endif %}
 {% endblock %}
