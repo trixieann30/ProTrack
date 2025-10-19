@@ -1,0 +1,149 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Delete User - {{ selected_user.username }} - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+.breadcrumb {
+    display: flex;
+    gap: 0.5rem;
+    color: #6b7280;
+    margin-bottom: 1rem;
+}
+
+.breadcrumb a {
+    color: #8b5cf6;
+    text-decoration: none;
+}
+
+.delete-card {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.warning-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    background: #fee2e2;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ef4444;
+}
+
+.delete-card h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 1rem;
+}
+
+.delete-card p {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.user-info-box {
+    background: #f9fafb;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin: 1.5rem 0;
+}
+
+.user-info-box strong {
+    color: #1f2937;
+    font-size: 1.1rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'dashboard:admin_dashboard' %}">Dashboard</a> / 
+    <a href="{% url 'dashboard:admin_users_list' %}">Users</a> / 
+    <a href="{% url 'dashboard:admin_user_detail' selected_user.id %}">{{ selected_user.username }}</a> /
+    <span>Delete</span>
+</div>
+
+<div class="delete-card">
+    <div class="warning-icon">
+        <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+    </div>
+    
+    <h2>Delete User?</h2>
+    <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+    
+    <div class="user-info-box">
+        <strong>{{ selected_user.get_full_name|default:selected_user.username }}</strong><br>
+        <span style="color: #6b7280;">@{{ selected_user.username }} • {{ selected_user.email }}</span>
+    </div>
+    
+    <p style="color: #ef4444; font-weight: 600;">
+        All data associated with this user will be permanently deleted.
+    </p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-danger">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+                Yes, Delete User
+            </button>
+            <a href="{% url 'dashboard:admin_user_detail' selected_user.id %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
