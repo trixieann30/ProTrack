@@ -1,0 +1,330 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}{{ course.title }} - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+.course-header {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 3rem 0;
+    border-radius: var(--radius-xl);
+    margin-bottom: 2rem;
+}
+
+.course-info-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    position: sticky;
+    top: 100px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(102, 126, 234, 0.1);
+    color: var(--primary-color);
+    margin-right: 1rem;
+}
+
+.section-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 1.5rem;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--dark-color);
+}
+
+.session-item {
+    padding: 1.25rem;
+    background: #f9fafb;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+    transition: all var(--transition-base);
+}
+
+.session-item:hover {
+    background: #f3f4f6;
+}
+
+.enrollment-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.enrollment-item:last-child {
+    border-bottom: none;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 1rem;
+}
+
+.progress-bar-custom {
+    height: 8px;
+    border-radius: 10px;
+    background: #e5e7eb;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--primary-gradient);
+    transition: width 0.3s ease;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Course Header -->
+<div class="course-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <a href="{% url 'dashboard:training_catalog' %}" class="text-white text-decoration-none mb-3 d-inline-block">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Catalog
+                </a>
+                <h1 class="mb-3">{{ course.title }}</h1>
+                <p class="mb-3" style="font-size: 1.1rem; opacity: 0.9;">{{ course.description|truncatewords:30 }}</p>
+                <div class="d-flex gap-3 flex-wrap">
+                    <span class="badge" style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem;">
+                        <i class="fas fa-chalkboard-teacher me-1"></i>{{ course.instructor }}
+                    </span>
+                    <span class="badge" style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem;">
+                        <i class="fas fa-signal me-1"></i>{{ course.get_level_display }}
+                    </span>
+                    {% if course.category %}
+                    <span class="badge" style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem;">
+                        <i class="{{ course.category.icon }} me-1"></i>{{ course.category.name }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+                {% if is_enrolled %}
+                <div class="alert alert-success mb-0" style="background: rgba(16, 185, 129, 0.2); border: none; color: white;">
+                    <i class="fas fa-check-circle me-2"></i>You are enrolled in this course
+                </div>
+                {% elif course.is_full %}
+                <div class="alert alert-warning mb-0" style="background: rgba(245, 158, 11, 0.2); border: none; color: white;">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Course is currently full
+                </div>
+                {% else %}
+                <form method="post" action="{% url 'dashboard:enroll_course' course.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-lg" style="background: white; color: var(--primary-color); font-weight: 700;">
+                        <i class="fas fa-user-plus me-2"></i>Enroll Now
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+        <!-- About Section -->
+        <div class="section-card">
+            <h2 class="section-title">About This Course</h2>
+            <p style="line-height: 1.8; color: #6b7280;">{{ course.description }}</p>
+        </div>
+
+        <!-- Learning Outcomes -->
+        <div class="section-card">
+            <h2 class="section-title">What You'll Learn</h2>
+            <div style="line-height: 1.8; color: #6b7280;">{{ course.learning_outcomes|linebreaks }}</div>
+        </div>
+
+        <!-- Prerequisites -->
+        {% if course.prerequisites %}
+        <div class="section-card">
+            <h2 class="section-title">Prerequisites</h2>
+            <div style="line-height: 1.8; color: #6b7280;">{{ course.prerequisites|linebreaks }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Upcoming Sessions -->
+        {% if upcoming_sessions %}
+        <div class="section-card">
+            <h2 class="section-title">Upcoming Sessions</h2>
+            {% for session in upcoming_sessions %}
+            <div class="session-item">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h5 class="mb-1">{{ session.session_name }}</h5>
+                    {% if session.is_online %}
+                    <span class="badge bg-primary">Online</span>
+                    {% else %}
+                    <span class="badge bg-secondary">In-Person</span>
+                    {% endif %}
+                </div>
+                <div class="text-muted mb-1">
+                    <i class="fas fa-calendar me-2"></i>{{ session.start_date }} to {{ session.end_date }}
+                </div>
+                <div class="text-muted mb-1">
+                    <i class="fas fa-clock me-2"></i>{{ session.start_time }} - {{ session.end_time }}
+                </div>
+                <div class="text-muted">
+                    <i class="fas fa-map-marker-alt me-2"></i>{{ session.location }}
+                </div>
+                {% if session.notes %}
+                <p class="mt-2 mb-0 text-muted" style="font-size: 0.9rem;">{{ session.notes }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Enrollments (Admin View) -->
+        {% if user.is_superuser and recent_enrollments %}
+        <div class="section-card">
+            <h2 class="section-title">Recent Enrollments</h2>
+            <div>
+                {% for enrollment in recent_enrollments %}
+                <div class="enrollment-item">
+                    <img src="{% if enrollment.user.profile_picture %}{{ enrollment.user.profile_picture.url }}{% else %}https://ui-avatars.com/api/?name={{ enrollment.user.get_full_name|urlencode }}&background=667eea&color=fff{% endif %}" 
+                         alt="{{ enrollment.user.username }}" class="user-avatar">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ enrollment.user.get_full_name|default:enrollment.user.username }}</strong>
+                                <div class="text-muted" style="font-size: 0.85rem;">{{ enrollment.user.get_user_type_display }}</div>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge {% if enrollment.status == 'completed' %}bg-success{% elif enrollment.status == 'in_progress' %}bg-primary{% elif enrollment.status == 'pending' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ enrollment.get_status_display }}
+                                </span>
+                                <div class="text-muted" style="font-size: 0.85rem;">{{ enrollment.enrolled_date|date:"M d, Y" }}</div>
+                            </div>
+                        </div>
+                        {% if enrollment.progress_percentage > 0 %}
+                        <div class="progress-bar-custom mt-2">
+                            <div class="progress-fill" style="width: {{ enrollment.progress_percentage }}%;"></div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <div class="course-info-card">
+            <h3 class="mb-4">Course Information</h3>
+            
+            <div class="info-item">
+                <div class="info-item-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div>
+                    <div class="text-muted" style="font-size: 0.85rem;">Duration</div>
+                    <strong>{{ course.duration_hours }} hours</strong>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <div class="info-item-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div>
+                    <div class="text-muted" style="font-size: 0.85rem;">Enrollment</div>
+                    <strong>{{ course.enrolled_count }} / {{ course.max_participants }} students</strong>
+                    <div class="progress-bar-custom mt-2">
+                        <div class="progress-fill" style="width: {{ course.enrolled_count|floatformat:0|add:0|mul:100|div:course.max_participants }}%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <div class="info-item-icon">
+                    <i class="fas fa-signal"></i>
+                </div>
+                <div>
+                    <div class="text-muted" style="font-size: 0.85rem;">Difficulty Level</div>
+                    <strong>{{ course.get_level_display }}</strong>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <div class="info-item-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div>
+                    <div class="text-muted" style="font-size: 0.85rem;">Completion Rate</div>
+                    <strong>{{ course.completion_rate }}%</strong>
+                </div>
+            </div>
+
+            <div class="info-item">
+                <div class="info-item-icon">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </div>
+                <div>
+                    <div class="text-muted" style="font-size: 0.85rem;">Instructor</div>
+                    <strong>{{ course.instructor }}</strong>
+                </div>
+            </div>
+
+            {% if is_enrolled %}
+            <div class="mt-4">
+                <a href="{% url 'dashboard:my_training' %}" class="btn btn-primary w-100 mb-2">
+                    <i class="fas fa-book-reader me-2"></i>Go to My Training
+                </a>
+                {% if enrollment.status != 'completed' %}
+                <form method="post" action="{% url 'dashboard:cancel_enrollment' enrollment.id %}" 
+                      onsubmit="return confirm('Are you sure you want to cancel this enrollment?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger w-100">
+                        <i class="fas fa-times me-2"></i>Cancel Enrollment
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% elif not course.is_full %}
+            <div class="mt-4">
+                <form method="post" action="{% url 'dashboard:enroll_course' course.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary w-100 btn-lg">
+                        <i class="fas fa-user-plus me-2"></i>Enroll Now
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

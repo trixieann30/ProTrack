@@ -1,0 +1,396 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}My Training - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+/* FIX: Added missing :root definitions for variables used throughout the CSS.
+    You may need to adjust these values to match your main theme in base_dashboard.html. 
+*/
+:root {
+    --primary-color: #007bff; /* Example: Bootstrap Blue */
+    --primary-gradient: linear-gradient(to right, #007bff, #00c6ff); 
+    --dark-color: #333;
+    --radius-xl: 1rem;
+    --radius-md: 0.5rem;
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --transition-base: 0.2s;
+}
+
+.training-tabs {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+.nav-tabs {
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    color: #6b7280;
+    font-weight: 600;
+    padding: 1rem 1.5rem;
+    position: relative;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--primary-color);
+    background: none;
+}
+
+.nav-tabs .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--primary-gradient);
+}
+
+.training-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-base);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.training-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+}
+
+.training-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 1rem;
+}
+
+.training-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--dark-color);
+    margin-bottom: 0.5rem;
+}
+
+.training-meta {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.training-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.progress-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+/* Corrected selector name to use .progress-bar, as that is the wrapper in the HTML */
+.progress-bar { 
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--primary-gradient);
+    transition: width 0.3s ease;
+}
+
+.training-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: #d1d5db;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-book-reader me-2" style="color: var(--primary-color);"></i>
+            My Training
+        </h2>
+        <p class="text-muted mb-0">Track your enrolled courses and progress</p>
+    </div>
+    <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-primary">
+        <i class="fas fa-search me-2"></i>Browse Courses
+    </a>
+</div>
+
+<div class="stats-row mb-4">
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ in_progress_count }}</h3>
+            <p>In Progress</p>
+            <span class="stat-change">
+                <i class="fas fa-tasks"></i> Active
+            </span>
+        </div>
+        <div class="stat-icon" style="background: rgba(245,158,11,0.10); color:#f59e0b;">
+            <i class="fas fa-spinner"></i>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ total_completed }}</h3>
+            <p>Completed</p>
+            <span class="stat-change">
+                <i class="fas fa-check-circle"></i> Done
+            </span>
+        </div>
+        <div class="stat-icon" style="background: rgba(16,185,129,0.10); color:#10b981;">
+            <i class="fas fa-award"></i>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ total_hours }}</h3>
+            <p>Total Hours</p>
+            <span class="stat-change">
+                <i class="fas fa-clock"></i> Tracked
+            </span>
+        </div>
+        <div class="stat-icon">
+            <i class="fas fa-hourglass-half"></i>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-info">
+            <h3>{{ avg_score }}%</h3>
+            <p>Average Score</p>
+            <span class="stat-change">
+                <i class="fas fa-chart-line"></i> Performance
+            </span>
+        </div>
+        <div class="stat-icon" style="background: rgba(6,182,212,0.10); color:#06b6d4;">
+            <i class="fas fa-star"></i>
+        </div>
+    </div>
+</div>
+
+<div class="training-tabs">
+    <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#active" role="tab">
+                Active ({{ active_enrollments.count }})
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#completed" role="tab">
+                Completed ({{ completed_enrollments.count }})
+            </a>
+        </li>
+        {% if pending_enrollments %}
+        <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#pending" role="tab">
+                Pending ({{ pending_enrollments.count }})
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</div>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="active" role="tabpanel">
+        {% if active_enrollments %}
+            {% for enrollment in active_enrollments %}
+            <div class="training-card">
+                <div class="training-header">
+                    <div class="flex-grow-1">
+                        <h3 class="training-title">{{ enrollment.course.title }}</h3>
+                        <div class="training-meta">
+                            <div class="training-meta-item">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                                {{ enrollment.course.instructor }}
+                            </div>
+                            <div class="training-meta-item">
+                                <i class="fas fa-clock"></i>
+                                {{ enrollment.course.duration_hours }}h
+                            </div>
+                            <div class="training-meta-item">
+                                <i class="fas fa-calendar"></i>
+                                Enrolled: {{ enrollment.enrolled_date|date:"M d, Y" }}
+                            </div>
+                            {% if enrollment.session %}
+                            <div class="training-meta-item">
+                                <i class="fas fa-map-marker-alt"></i>
+                                {{ enrollment.session.location }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="badge bg-primary">{{ enrollment.get_status_display }}</span>
+                </div>
+
+                <div class="progress-section">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted" style="font-size: 0.9rem;">Progress</span>
+                        <strong>{{ enrollment.progress_percentage }}%</strong>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: {{ enrollment.progress_percentage }}%;"></div>
+                    </div>
+                </div>
+
+                <div class="training-actions mt-3">
+                    <a href="{% url 'dashboard:course_detail' enrollment.course.id %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-eye me-1"></i>View Details
+                    </a>
+                    {% if enrollment.session %}
+                    <button class="btn btn-sm btn-secondary" disabled>
+                        <i class="fas fa-calendar-check me-1"></i>Session: {{ enrollment.session.start_date }}
+                    </button>
+                    {% endif %}
+                    <form method="post" action="{% url 'dashboard:cancel_enrollment' enrollment.id %}" 
+                          onsubmit="return confirm('Are you sure you want to cancel this enrollment?');" 
+                          class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-times me-1"></i>Cancel
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-tasks"></i>
+                <h5 class="text-muted mb-2">No active training courses</h5>
+                <p class="text-muted mb-4">Browse our catalog to find courses that match your interests</p>
+                <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>Browse Courses
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="tab-pane fade" id="completed" role="tabpanel">
+        {% if completed_enrollments %}
+            {% for enrollment in completed_enrollments %}
+            <div class="training-card">
+                <div class="training-header">
+                    <div class="flex-grow-1">
+                        <h3 class="training-title">{{ enrollment.course.title }}</h3>
+                        <div class="training-meta">
+                            <div class="training-meta-item">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                                {{ enrollment.course.instructor }}
+                            </div>
+                            <div class="training-meta-item">
+                                <i class="fas fa-check-circle"></i>
+                                Completed: {{ enrollment.completion_date|date:"M d, Y" }}
+                            </div>
+                            {% if enrollment.score %}
+                            <div class="training-meta-item">
+                                <i class="fas fa-star"></i>
+                                Score: {{ enrollment.score }}%
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="badge bg-success">
+                        <i class="fas fa-trophy me-1"></i>Completed
+                    </span>
+                </div>
+
+                {% if enrollment.feedback %}
+                <div class="mt-3 p-3" style="background: #f9fafb; border-radius: var(--radius-md);">
+                    <strong class="d-block mb-2">Your Feedback:</strong>
+                    <p class="mb-0 text-muted">{{ enrollment.feedback }}</p>
+                </div>
+                {% endif %}
+
+                <div class="training-actions mt-3">
+                    <a href="{% url 'dashboard:course_detail' enrollment.course.id %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-eye me-1"></i>View Details
+                    </a>
+                    <button class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-certificate me-1"></i>Download Certificate
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-award"></i>
+                <h5 class="text-muted mb-2">No completed courses yet</h5>
+                <p class="text-muted">Keep working on your active courses to complete them</p>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if pending_enrollments %}
+    <div class="tab-pane fade" id="pending" role="tabpanel">
+        {% for enrollment in pending_enrollments %}
+        <div class="training-card">
+            <div class="training-header">
+                <div class="flex-grow-1">
+                    <h3 class="training-title">{{ enrollment.course.title }}</h3>
+                    <div class="training-meta">
+                        <div class="training-meta-item">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                            {{ enrollment.course.instructor }}
+                        </div>
+                        <div class="training-meta-item">
+                            <i class="fas fa-calendar"></i>
+                            Requested: {{ enrollment.enrolled_date|date:"M d, Y" }}
+                        </div>
+                        {% if enrollment.assigned_by %}
+                        <div class="training-meta-item">
+                            <i class="fas fa-user"></i>
+                            Assigned by: {{ enrollment.assigned_by.get_full_name }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <span class="badge bg-warning">Pending Approval</span>
+            </div>
+
+            <div class="alert alert-info mb-0 mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                Your enrollment is pending approval from an administrator.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
