@@ -70,11 +70,28 @@
                 </a>
             </li>
             <li class="sidebar-menu-item">
-                <a href="{% url 'dashboard:training' %}" class="sidebar-menu-link {% if request.resolver_match.url_name == 'training' %}active{% endif %}">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>Training</span>
+                <a href="{% url 'dashboard:training_catalog' %}"
+                    class="sidebar-menu-link {% if 'catalog' in request.resolver_match.url_name %}active{% endif %}">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>Training Catalog</span>
                 </a>
             </li>
+            <li class="sidebar-menu-item">
+                <a href="{% url 'dashboard:my_training' %}"
+                    class="sidebar-menu-link {% if 'my_training' in request.resolver_match.url_name %}active{% endif %}">
+                    <i class="fas fa-book-reader"></i>
+                    <span>My Training</span>
+                </a>
+            </li>
+            {% if user.is_superuser %}
+            <li class="sidebar-menu-item">
+                <a href="{% url 'dashboard:assign_training' %}"
+                    class="sidebar-menu-link {% if 'assign' in request.resolver_match.url_name %}active{% endif %}">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Assign Training</span>
+                </a>
+            </li>
+            {% endif %}
             <li class="sidebar-menu-item">
                 <a href="{% url 'dashboard:certifications' %}" class="sidebar-menu-link {% if request.resolver_match.url_name == 'certifications' %}active{% endif %}">
                     <i class="fas fa-certificate"></i>

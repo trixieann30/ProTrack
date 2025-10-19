@@ -1,0 +1,426 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Assign Training - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+.assignment-form {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+.user-selection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: var(--radius-md);
+}
+
+.user-card {
+    background: white;
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    border: 2px solid #e5e7eb;
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.user-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.user-card.selected {
+    border-color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.user-checkbox {
+    margin-right: 0.75rem;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+}
+
+.user-avatar-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 0.75rem;
+}
+
+.course-selection {
+    background: #f9fafb;
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1.5rem;
+}
+
+.selected-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--primary-gradient);
+    color: white;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+}
+
+.filter-section {
+    background: white;
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+}
+
+.session-option {
+    padding: 0.75rem;
+    background: white;
+    border-radius: var(--radius-md);
+    margin-top: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-user-plus me-2" style="color: var(--primary-color);"></i>
+            Assign Training
+        </h2>
+        <p class="text-muted mb-0">Assign training courses to employees and students</p>
+    </div>
+    <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Catalog
+    </a>
+</div>
+
+<div class="assignment-form">
+    <form method="post" id="assignmentForm">
+        {% csrf_token %}
+        
+        <!-- Step 1: Select Users -->
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>
+                    <span class="badge bg-primary me-2">1</span>
+                    Select Users
+                </h4>
+                <div class="selected-count" id="selectedCount">
+                    <i class="fas fa-users"></i>
+                    <span id="countText">0 selected</span>
+                </div>
+            </div>
+
+            <!-- User Filters -->
+            <div class="filter-section">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <input type="text" id="userSearch" class="form-control" 
+                               placeholder="Search by name or username...">
+                    </div>
+                    <div class="col-md-3">
+                        <select id="userTypeFilter" class="form-control">
+                            <option value="">All User Types</option>
+                            <option value="student">Students</option>
+                            <option value="employee">Employees</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select id="departmentFilter" class="form-control">
+                            <option value="">All Departments</option>
+                            {% regroup users by department as department_list %}
+                            {% for dept in department_list %}
+                                {% if dept.grouper %}
+                                <option value="{{ dept.grouper }}">{{ dept.grouper }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-outline-primary w-100" id="selectAllBtn">
+                            <i class="fas fa-check-double me-1"></i>Select All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Selection Grid -->
+            <div class="user-selection-grid" id="userGrid">
+                {% for user in users %}
+                <div class="user-card" data-user-id="{{ user.id }}" 
+                     data-username="{{ user.username|lower }}" 
+                     data-fullname="{{ user.get_full_name|lower }}"
+                     data-usertype="{{ user.user_type }}"
+                     data-department="{{ user.department }}">
+                    <label class="user-info mb-0 w-100" style="cursor: pointer;">
+                        <input type="checkbox" name="user_ids" value="{{ user.id }}" 
+                               class="user-checkbox">
+                        <img src="{% if user.profile_picture %}{{ user.profile_picture.url }}{% else %}https://ui-avatars.com/api/?name={{ user.get_full_name|urlencode }}&background=667eea&color=fff{% endif %}" 
+                             alt="{{ user.username }}" class="user-avatar-small">
+                        <div>
+                            <strong class="d-block">{{ user.get_full_name|default:user.username }}</strong>
+                            <small class="text-muted">{{ user.get_user_type_display }}{% if user.department %} - {{ user.department }}{% endif %}</small>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Step 2: Select Course -->
+        <div class="mb-4">
+            <h4 class="mb-3">
+                <span class="badge bg-primary me-2">2</span>
+                Select Course
+            </h4>
+
+            <div class="course-selection">
+                <div class="mb-3">
+                    <label class="form-label">Training Course *</label>
+                    <select name="course_id" id="courseSelect" class="form-control" required>
+                        <option value="">-- Select a course --</option>
+                        {% for course in courses %}
+                        <option value="{{ course.id }}" 
+                                data-duration="{{ course.duration_hours }}"
+                                data-instructor="{{ course.instructor }}"
+                                data-level="{{ course.get_level_display }}">
+                            {{ course.title }} ({{ course.get_level_display }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Course Details (shown when course selected) -->
+                <div id="courseDetails" style="display: none;" class="mt-3">
+                    <div class="alert alert-info mb-0">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Instructor:</strong>
+                                <span id="courseInstructor"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Duration:</strong>
+                                <span id="courseDuration"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Level:</strong>
+                                <span id="courseLevel"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Step 3: Select Session (Optional) -->
+        <div class="mb-4">
+            <h4 class="mb-3">
+                <span class="badge bg-secondary me-2">3</span>
+                Select Session (Optional)
+            </h4>
+
+            <div class="course-selection">
+                <div class="mb-2">
+                    <label class="form-label">Training Session</label>
+                    <select name="session_id" id="sessionSelect" class="form-control">
+                        <option value="">-- No specific session (students can choose later) --</option>
+                    </select>
+                </div>
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Sessions will be loaded after you select a course
+                </small>
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Submit Button -->
+        <div class="text-end">
+            <button type="button" class="btn btn-secondary me-2" onclick="window.history.back()">
+                Cancel
+            </button>
+            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                <i class="fas fa-check me-2"></i>Assign Training
+            </button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const userCheckboxes = document.querySelectorAll('.user-checkbox');
+    const courseSelect = document.getElementById('courseSelect');
+    const sessionSelect = document.getElementById('sessionSelect');
+    const submitBtn = document.getElementById('submitBtn');
+    const countText = document.getElementById('countText');
+    const userSearch = document.getElementById('userSearch');
+    const userTypeFilter = document.getElementById('userTypeFilter');
+    const departmentFilter = document.getElementById('departmentFilter');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const userCards = document.querySelectorAll('.user-card');
+
+    // Update selected count
+    function updateCount() {
+        const checked = document.querySelectorAll('.user-checkbox:checked').length;
+        countText.textContent = `${checked} selected`;
+        validateForm();
+    }
+
+    // Validate form
+    function validateForm() {
+        const hasUsers = document.querySelectorAll('.user-checkbox:checked').length > 0;
+        const hasCourse = courseSelect.value !== '';
+        submitBtn.disabled = !(hasUsers && hasCourse);
+    }
+
+    // Handle checkbox changes
+    userCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const card = this.closest('.user-card');
+            if (this.checked) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+            updateCount();
+        });
+    });
+
+    // Handle card clicks
+    userCards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox') {
+                const checkbox = this.querySelector('.user-checkbox');
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+
+    // User search filter
+    userSearch.addEventListener('input', filterUsers);
+    userTypeFilter.addEventListener('change', filterUsers);
+    departmentFilter.addEventListener('change', filterUsers);
+
+    function filterUsers() {
+        const searchTerm = userSearch.value.toLowerCase();
+        const userType = userTypeFilter.value;
+        const department = departmentFilter.value;
+
+        userCards.forEach(card => {
+            const username = card.dataset.username;
+            const fullname = card.dataset.fullname;
+            const cardUserType = card.dataset.usertype;
+            const cardDepartment = card.dataset.department;
+
+            const matchesSearch = !searchTerm || 
+                username.includes(searchTerm) || 
+                fullname.includes(searchTerm);
+            const matchesType = !userType || cardUserType === userType;
+            const matchesDept = !department || cardDepartment === department;
+
+            if (matchesSearch && matchesType && matchesDept) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // Select all visible users
+    selectAllBtn.addEventListener('click', function() {
+        const visibleCards = Array.from(userCards).filter(card => card.style.display !== 'none');
+        const allChecked = visibleCards.every(card => 
+            card.querySelector('.user-checkbox').checked
+        );
+
+        visibleCards.forEach(card => {
+            const checkbox = card.querySelector('.user-checkbox');
+            checkbox.checked = !allChecked;
+            checkbox.dispatchEvent(new Event('change'));
+        });
+
+        this.innerHTML = allChecked ? 
+            '<i class="fas fa-check-double me-1"></i>Select All' :
+            '<i class="fas fa-times me-1"></i>Deselect All';
+    });
+
+    // Handle course selection
+    courseSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const courseDetails = document.getElementById('courseDetails');
+        
+        if (this.value) {
+            document.getElementById('courseInstructor').textContent = selectedOption.dataset.instructor;
+            document.getElementById('courseDuration').textContent = selectedOption.dataset.duration + ' hours';
+            document.getElementById('courseLevel').textContent = selectedOption.dataset.level;
+            courseDetails.style.display = 'block';
+            
+            // Load sessions
+            loadSessions(this.value);
+        } else {
+            courseDetails.style.display = 'none';
+            sessionSelect.innerHTML = '<option value="">-- No specific session --</option>';
+        }
+        
+        validateForm();
+    });
+
+    // Load course sessions
+    function loadSessions(courseId) {
+        sessionSelect.innerHTML = '<option value="">Loading sessions...</option>';
+        
+        fetch(`/dashboard/api/course/${courseId}/sessions/`)
+            .then(response => response.json())
+            .then(sessions => {
+                sessionSelect.innerHTML = '<option value="">-- No specific session (students can choose later) --</option>';
+                
+                sessions.forEach(session => {
+                    const option = document.createElement('option');
+                    option.value = session.id;
+                    option.textContent = `${session.session_name} - ${session.start_date} (${session.location})`;
+                    sessionSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading sessions:', error);
+                sessionSelect.innerHTML = '<option value="">-- No specific session --</option>';
+            });
+    }
+
+    // Form submission confirmation
+    document.getElementById('assignmentForm').addEventListener('submit', function(e) {
+        const userCount = document.querySelectorAll('.user-checkbox:checked').length;
+        const courseName = courseSelect.options[courseSelect.selectedIndex].text;
+        
+        if (!confirm(`Are you sure you want to assign "${courseName}" to ${userCount} user(s)?`)) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}
