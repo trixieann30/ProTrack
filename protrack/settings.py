@@ -189,6 +189,24 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
 # When user signs in with Google, mark email as verified
 SOCIALACCOUNT_ADAPTER = 'accounts.adapters.MySocialAccountAdapter'
 
+# Google OAuth Configuration
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'APP': {
+            'client_id': config('GOOGLE_CLIENT_ID', default=''),
+            'secret': config('GOOGLE_CLIENT_SECRET', default=''),
+            'key': ''
+        }
+    }
+}
+
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 # Email Configuration for Gmail
