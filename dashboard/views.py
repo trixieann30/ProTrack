@@ -347,7 +347,7 @@ def admin_user_detail(request, user_id):
     enrollments = Enrollment.objects.filter(user=user).select_related('course')
     
     context = {
-        'viewed_user': user,
+        'selected_user': user,
         'enrollments': enrollments,
     }
     return render(request, 'dashboard/admin_user_detail.html', context)
@@ -408,7 +408,7 @@ def admin_user_edit(request, user_id):
         return redirect('dashboard:admin_user_detail', user_id=user.id)
     
     context = {
-        'viewed_user': user,
+        'selected_user': user,
     }
     return render(request, 'dashboard/admin_user_edit.html', context)
 
