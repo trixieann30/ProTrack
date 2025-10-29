@@ -27,7 +27,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-3ixyr7lvc=udrd!j_zsp_
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = [
-    'protrackskillmanagement.onrender.com',
+    "protrackskillmanagement.onrender.com",
 ]
 
 
