@@ -10,3 +10,4 @@ django-allauth==0.57.0
 requests==2.32.3
 PyJWT==2.10.1
 cryptography==44.0.0
+gunicorn == 23.0.0
