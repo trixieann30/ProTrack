@@ -32,9 +32,28 @@ class TrainingCourse(models.Model):
         ('advanced', 'Advanced'),
     )
     
+    PROGRAM_CHOICES = (
+        ('ALL', 'All Programs'),
+        ('BSIT', 'BS Information Technology'),
+        ('BSCS', 'BS Computer Science'),
+        ('BSARCH', 'BS Architecture'),
+        ('BSCE', 'BS Civil Engineering'),
+        ('BSME', 'BS Mechanical Engineering'),
+        ('BSEE', 'BS Electrical Engineering'),
+        ('BSBA', 'BS Business Administration'),
+        ('BSED', 'BS Education'),
+        ('BSHRM', 'BS Hotel & Restaurant Management'),
+        ('BSTM', 'BS Tourism Management'),
+    )
+    
     title = models.CharField(max_length=200)
     description = models.TextField()
     category = models.ForeignKey(TrainingCategory, on_delete=models.SET_NULL, null=True, related_name='courses')
+    target_programs = models.CharField(
+        max_length=200,
+        default='ALL',
+        help_text='Comma-separated programs (e.g., "BSIT,BSCS") or "ALL" for all programs'
+    )
     instructor = models.CharField(max_length=100)
     duration_hours = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0.5)])
     level = models.CharField(max_length=20, choices=LEVEL_CHOICES, default='beginner')
@@ -138,3 +157,66 @@ class Enrollment(models.Model):
         """Cancel enrollment"""
         self.status = 'cancelled'
         self.save()
+
+
+class TrainingMaterial(models.Model):
+    """Training materials/resources for courses (US-07)"""
+    MATERIAL_TYPE_CHOICES = (
+        ('document', 'Document'),
+        ('video', 'Video'),
+        ('presentation', 'Presentation'),
+        ('quiz', 'Quiz'),
+        ('other', 'Other'),
+    )
+    
+    course = models.ForeignKey(TrainingCourse, on_delete=models.CASCADE, related_name='materials')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    material_type = models.CharField(max_length=20, choices=MATERIAL_TYPE_CHOICES, default='document')
+    file_url = models.URLField(max_length=500, help_text='URL to file in Supabase storage')
+    file_name = models.CharField(max_length=255)
+    file_size = models.BigIntegerField(help_text='File size in bytes')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='uploaded_materials')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_required = models.BooleanField(default=False, help_text='Is this material required for course completion?')
+    order = models.PositiveIntegerField(default=0, help_text='Display order')
+    
+    class Meta:
+        ordering = ['course', 'order', '-uploaded_at']
+    
+    def __str__(self):
+        return f"{self.course.title} - {self.title}"
+
+
+class Certificate(models.Model):
+    """Training certificates for completed courses (US-09)"""
+    STATUS_CHOICES = (
+        ('draft', 'Draft'),
+        ('issued', 'Issued'),
+        ('revoked', 'Revoked'),
+    )
+    
+    enrollment = models.OneToOneField(Enrollment, on_delete=models.CASCADE, related_name='certificate')
+    certificate_number = models.CharField(max_length=50, unique=True)
+    issue_date = models.DateField(auto_now_add=True)
+    expiry_date = models.DateField(null=True, blank=True, help_text='Leave blank for no expiry')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    certificate_url = models.URLField(max_length=500, blank=True, help_text='URL to certificate PDF in Supabase storage')
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='issued_certificates')
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-issue_date']
+    
+    def __str__(self):
+        return f"Certificate {self.certificate_number} - {self.enrollment.user.username}"
+    
+    def generate_certificate_number(self):
+        """Generate unique certificate number"""
+        from django.utils import timezone
+        import random
+        year = timezone.now().year
+        random_num = random.randint(1000, 9999)
+        return f"CERT-{year}-{random_num}"

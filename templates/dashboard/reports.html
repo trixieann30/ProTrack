@@ -1,0 +1,282 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Reports & Analytics - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+.stat-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    height: 100%;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.stat-label {
+    color: #6b7280;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.chart-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2 class="mb-1">
+        <i class="fas fa-chart-bar me-2" style="color: #3b82f6;"></i>
+        Reports & Analytics
+    </h2>
+    <p class="text-muted mb-0">Track training completion and analyze overall performance</p>
+</div>
+
+<!-- Overall Statistics -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-label mb-2">Total Courses</div>
+                    <div class="stat-value">{{ total_courses }}</div>
+                    <small class="text-success">
+                        <i class="fas fa-arrow-up me-1"></i>
+                        {{ active_courses }} active
+                    </small>
+                </div>
+                <div class="stat-icon" style="background: rgba(59,130,246,0.1); color: #3b82f6;">
+                    <i class="fas fa-book"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-label mb-2">Total Enrollments</div>
+                    <div class="stat-value">{{ total_enrollments }}</div>
+                    <small class="text-primary">
+                        <i class="fas fa-users me-1"></i>
+                        {{ active_enrollments }} active
+                    </small>
+                </div>
+                <div class="stat-icon" style="background: rgba(16,185,129,0.1); color: #10b981;">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-label mb-2">Completion Rate</div>
+                    <div class="stat-value">{{ overall_completion_rate }}%</div>
+                    <small class="text-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        {{ completed_enrollments }} completed
+                    </small>
+                </div>
+                <div class="stat-icon" style="background: rgba(245,158,11,0.1); color: #f59e0b;">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-label mb-2">Average Score</div>
+                    <div class="stat-value">{{ avg_score }}%</div>
+                    <small class="text-info">
+                        <i class="fas fa-star me-1"></i>
+                        {{ total_certificates }} certificates
+                    </small>
+                </div>
+                <div class="stat-icon" style="background: rgba(139,92,246,0.1); color: #8b5cf6;">
+                    <i class="fas fa-award"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Course Performance -->
+<div class="chart-card">
+    <h5 class="mb-4">
+        <i class="fas fa-trophy me-2"></i>Top Performing Courses
+    </h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Course</th>
+                    <th>Enrolled</th>
+                    <th>Completed</th>
+                    <th>Avg Score</th>
+                    <th>Completion Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for course in course_stats %}
+                <tr>
+                    <td><strong>{{ course.title }}</strong></td>
+                    <td>{{ course.total_enrolled }}</td>
+                    <td>{{ course.completed }}</td>
+                    <td>
+                        {% if course.avg_score %}
+                            {{ course.avg_score|floatformat:1 }}%
+                        {% else %}
+                            <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% widthratio course.completed course.total_enrolled 100 %}%
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        No course data available yet. Create some courses and enrollments to see statistics.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- User Progress -->
+<div class="chart-card">
+    <h5 class="mb-4">
+        <i class="fas fa-users me-2"></i>Top Learners
+    </h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Total Enrolled</th>
+                    <th>Completed</th>
+                    <th>In Progress</th>
+                    <th>Avg Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user_stat in user_progress %}
+                <tr>
+                    <td><strong>{{ user_stat.username }}</strong></td>
+                    <td>{{ user_stat.total_enrollments }}</td>
+                    <td>{{ user_stat.completed_courses }}</td>
+                    <td>{{ user_stat.in_progress }}</td>
+                    <td>
+                        {% if user_stat.avg_score %}
+                            {{ user_stat.avg_score|floatformat:1 }}%
+                        {% else %}
+                            <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">
+                        No user data available yet
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="chart-card">
+            <h5 class="mb-4">
+                <i class="fas fa-clock me-2"></i>Recent Enrollments
+            </h5>
+            <div class="list-group">
+                {% for enrollment in recent_enrollments %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ enrollment.user.username }}</strong>
+                            <br>
+                            <small class="text-muted">{{ enrollment.course.title }}</small>
+                        </div>
+                        <small class="text-muted">
+                            {{ enrollment.enrolled_date|date:"M d, Y" }}
+                        </small>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted mb-0">No recent enrollments</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="chart-card">
+            <h5 class="mb-4">
+                <i class="fas fa-check-circle me-2"></i>Recent Completions
+            </h5>
+            <div class="list-group">
+                {% for enrollment in recent_completions %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ enrollment.user.username }}</strong>
+                            <br>
+                            <small class="text-muted">{{ enrollment.course.title }}</small>
+                        </div>
+                        <div class="text-end">
+                            {% if enrollment.score %}
+                            <span class="badge bg-success">{{ enrollment.score }}%</span>
+                            <br>
+                            {% endif %}
+                            <small class="text-muted">
+                                {{ enrollment.completion_date|date:"M d, Y" }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted mb-0">No recent completions</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

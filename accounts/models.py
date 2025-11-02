@@ -9,7 +9,27 @@ class CustomUser(AbstractUser):
         ('admin', 'Administrator'),
     )
     
+    PROGRAM_CHOICES = (
+        ('BSIT', 'BS Information Technology'),
+        ('BSCS', 'BS Computer Science'),
+        ('BSARCH', 'BS Architecture'),
+        ('BSCE', 'BS Civil Engineering'),
+        ('BSME', 'BS Mechanical Engineering'),
+        ('BSEE', 'BS Electrical Engineering'),
+        ('BSBA', 'BS Business Administration'),
+        ('BSED', 'BS Education'),
+        ('BSHRM', 'BS Hotel & Restaurant Management'),
+        ('BSTM', 'BS Tourism Management'),
+        ('OTHER', 'Other'),
+    )
+    
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='student')
+    program = models.CharField(
+        max_length=20, 
+        choices=PROGRAM_CHOICES, 
+        blank=True,
+        help_text='For students: degree program. For employees: area of expertise'
+    )
     phone_number = models.CharField(
         max_length=15,
         validators=[RegexValidator(r'^\+?1?\d{9,15}$', 'Enter a valid phone number.')],

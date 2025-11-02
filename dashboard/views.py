@@ -9,7 +9,7 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.utils import timezone
 from accounts.models import CustomUser
-from .models import TrainingCourse, TrainingCategory, TrainingSession, Enrollment
+from .models import TrainingCourse, TrainingCategory, TrainingSession, Enrollment, Certificate, TrainingMaterial
 
 
 def is_superuser(user):
@@ -70,7 +70,32 @@ def training(request):
 
 @login_required
 def certifications(request):
-    return render(request, 'dashboard/certifications.html')
+    """Display user's certificates (US-09)"""
+    user = request.user
+    
+    # Get user's certificates through their completed enrollments
+    if user.is_superuser:
+        # Admins see all certificates
+        certificates = Certificate.objects.select_related(
+            'enrollment__user',
+            'enrollment__course',
+            'issued_by'
+        ).order_by('-issue_date')
+    else:
+        # Regular users see only their own certificates
+        certificates = Certificate.objects.filter(
+            enrollment__user=user
+        ).select_related(
+            'enrollment__course',
+            'issued_by'
+        ).order_by('-issue_date')
+    
+    context = {
+        'certificates': certificates,
+        'user': user,
+    }
+    
+    return render(request, 'dashboard/certifications.html', context)
 
 
 # ============ TRAINING VIEWS ============
@@ -80,6 +105,14 @@ def training_catalog(request):
     """Display all available training courses"""
     courses = TrainingCourse.objects.filter(status='active').select_related('category')
     categories = TrainingCategory.objects.all()
+    
+    # Filter by user's program (for students and employees)
+    if not request.user.is_superuser and request.user.program:
+        # Show courses for user's program OR courses for ALL programs
+        courses = courses.filter(
+            Q(target_programs='ALL') | 
+            Q(target_programs__icontains=request.user.program)
+        )
     
     # Filter by category if provided
     category_id = request.GET.get('category')
@@ -175,12 +208,52 @@ def enroll_course(request, course_id):
 @login_required
 def my_training(request):
     """Display user's enrolled training courses"""
-    enrollments = Enrollment.objects.filter(
+    from django.db.models import Avg, Sum
+    
+    # Get all enrollments
+    all_enrollments = Enrollment.objects.filter(
         user=request.user
     ).select_related('course', 'session').order_by('-enrolled_date')
     
+    # Separate by status
+    active_enrollments = all_enrollments.filter(
+        status__in=['enrolled', 'in_progress']
+    )
+    
+    completed_enrollments = all_enrollments.filter(
+        status='completed'
+    )
+    
+    pending_enrollments = all_enrollments.filter(
+        status='pending'
+    )
+    
+    # Calculate statistics
+    total_enrollments = all_enrollments.count()
+    in_progress_count = active_enrollments.count()
+    completed_count = completed_enrollments.count()
+    
+    # Calculate total hours (completed courses)
+    total_hours = completed_enrollments.aggregate(
+        total=Sum('course__duration_hours')
+    )['total'] or 0
+    
+    # Calculate average score
+    avg_score = completed_enrollments.filter(
+        score__isnull=False
+    ).aggregate(Avg('score'))['score__avg']
+    avg_score = round(avg_score, 1) if avg_score else 0
+    
     context = {
-        'enrollments': enrollments,
+        'enrollments': all_enrollments,
+        'active_enrollments': active_enrollments,
+        'completed_enrollments': completed_enrollments,
+        'pending_enrollments': pending_enrollments,
+        'total_enrollments': total_enrollments,
+        'in_progress_count': in_progress_count,
+        'completed_count': completed_count,
+        'total_hours': total_hours,
+        'avg_score': avg_score,
     }
     return render(request, 'dashboard/my_training.html', context)
 
@@ -453,3 +526,136 @@ def admin_user_toggle_status(request, user_id):
         return redirect('dashboard:admin_user_detail', user_id=user_id)
     
     return redirect('dashboard:admin_users_list')
+
+
+# ============ REPORTS VIEWS (US-03) ============
+
+@login_required
+@user_passes_test(is_superuser)
+def reports(request):
+    """Admin reports and analytics dashboard (US-03)"""
+    from django.db.models import Avg, Count, Q, F
+    from datetime import datetime, timedelta
+    
+    # Overall Statistics
+    total_courses = TrainingCourse.objects.count()
+    active_courses = TrainingCourse.objects.filter(status='active').count()
+    archived_courses = TrainingCourse.objects.filter(status='archived').count()
+    
+    total_enrollments = Enrollment.objects.count()
+    active_enrollments = Enrollment.objects.filter(
+        status__in=['enrolled', 'in_progress']
+    ).count()
+    completed_enrollments = Enrollment.objects.filter(status='completed').count()
+    
+    total_users = CustomUser.objects.filter(is_superuser=False).count()
+    total_certificates = Certificate.objects.filter(status='issued').count()
+    
+    # Completion Rate
+    if total_enrollments > 0:
+        overall_completion_rate = round((completed_enrollments / total_enrollments) * 100, 1)
+    else:
+        overall_completion_rate = 0
+    
+    # Average Score
+    avg_score = Enrollment.objects.filter(
+        score__isnull=False
+    ).aggregate(Avg('score'))['score__avg']
+    avg_score = round(avg_score, 1) if avg_score else 0
+    
+    # Course Performance
+    course_stats = TrainingCourse.objects.annotate(
+        total_enrolled=Count('enrollments'),
+        completed=Count('enrollments', filter=Q(enrollments__status='completed')),
+        avg_score=Avg('enrollments__score', filter=Q(enrollments__score__isnull=False))
+    ).filter(total_enrolled__gt=0).order_by('-total_enrolled')[:10]
+    
+    # Recent Enrollments
+    recent_enrollments = Enrollment.objects.select_related(
+        'user', 'course'
+    ).order_by('-enrolled_date')[:10]
+    
+    # Recent Completions
+    recent_completions = Enrollment.objects.filter(
+        status='completed'
+    ).select_related('user', 'course').order_by('-completion_date')[:10]
+    
+    # User Progress Summary
+    user_progress = CustomUser.objects.filter(
+        is_superuser=False
+    ).annotate(
+        total_enrollments=Count('enrollments'),
+        completed_courses=Count('enrollments', filter=Q(enrollments__status='completed')),
+        in_progress=Count('enrollments', filter=Q(enrollments__status='in_progress')),
+        avg_score=Avg('enrollments__score', filter=Q(enrollments__score__isnull=False))
+    ).filter(total_enrollments__gt=0).order_by('-completed_courses')[:10]
+    
+    # Monthly Enrollment Trend (last 6 months)
+    from django.utils import timezone
+    from collections import defaultdict
+    six_months_ago = timezone.now() - timedelta(days=180)
+    
+    # Get enrollments and group by month in Python (SQLite compatible)
+    enrollments_recent = Enrollment.objects.filter(
+        enrolled_date__gte=six_months_ago
+    ).values('enrolled_date')
+    
+    monthly_data = defaultdict(int)
+    for enrollment in enrollments_recent:
+        if enrollment['enrolled_date']:
+            month_key = enrollment['enrolled_date'].strftime('%Y-%m')
+            monthly_data[month_key] += 1
+    
+    monthly_enrollments = [
+        {'month': month, 'count': count}
+        for month, count in sorted(monthly_data.items())
+    ]
+    
+    # Category Performance
+    category_stats = TrainingCategory.objects.annotate(
+        course_count=Count('courses'),
+        enrollment_count=Count('courses__enrollments'),
+        completion_count=Count('courses__enrollments', filter=Q(courses__enrollments__status='completed'))
+    ).filter(course_count__gt=0)
+    
+    # Certificates Issued (group by month in Python)
+    certs_recent = Certificate.objects.filter(
+        status='issued',
+        issue_date__gte=six_months_ago
+    ).values('issue_date')
+    
+    cert_monthly_data = defaultdict(int)
+    for cert in certs_recent:
+        if cert['issue_date']:
+            month_key = cert['issue_date'].strftime('%Y-%m')
+            cert_monthly_data[month_key] += 1
+    
+    certificates_by_month = [
+        {'month': month, 'count': count}
+        for month, count in sorted(cert_monthly_data.items())
+    ]
+    
+    context = {
+        # Overall Stats
+        'total_courses': total_courses,
+        'active_courses': active_courses,
+        'archived_courses': archived_courses,
+        'total_enrollments': total_enrollments,
+        'active_enrollments': active_enrollments,
+        'completed_enrollments': completed_enrollments,
+        'total_users': total_users,
+        'total_certificates': total_certificates,
+        'overall_completion_rate': overall_completion_rate,
+        'avg_score': avg_score,
+        
+        # Detailed Stats
+        'course_stats': course_stats,
+        'recent_enrollments': recent_enrollments,
+        'recent_completions': recent_completions,
+        'user_progress': user_progress,
+        'monthly_enrollments': monthly_enrollments,
+        'category_stats': category_stats,
+        'certificates_by_month': certificates_by_month,
+    }
+    
+    return render(request, 'dashboard/reports.html', context)
