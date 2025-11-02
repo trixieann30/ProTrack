@@ -28,6 +28,13 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = [
     "protrackskillmanagement.onrender.com",
+    "localhost",
+    "127.0.0.1",
+]
+
+# CSRF trusted origins for production
+CSRF_TRUSTED_ORIGINS = [
+    "https://protrackskillmanagement.onrender.com",
 ]
 
 
@@ -203,11 +210,6 @@ SOCIALACCOUNT_PROVIDERS = {
         ],
         'AUTH_PARAMS': {
             'access_type': 'online',
-        },
-        'APP': {
-            'client_id': config('GOOGLE_CLIENT_ID', default=''),
-            'secret': config('GOOGLE_CLIENT_SECRET', default=''),
-            'key': ''
         }
     }
 }
