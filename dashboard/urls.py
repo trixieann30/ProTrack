@@ -21,6 +21,9 @@ urlpatterns = [
     path('api/course/<int:course_id>/sessions/', views.get_course_sessions, name='get_course_sessions'),
     path('certifications/', views.certifications, name='certifications'),
     
+    # Reports (US-03)
+    path('reports/', views.reports, name='reports'),
+    
     # Settings URLs
     path('settings/', views.settings, name='settings'),
     path('settings/profile/', views.profile_settings, name='profile_settings'),

@@ -1,0 +1,132 @@
+================================================================================
+PROTRACK SUPABASE QUICK REFERENCE
+================================================================================
+
+YOUR SUPABASE PROJECT
+---------------------
+Project Reference: zkpaqrzwoffzumhbeyfj
+Project URL: https://zkpaqrzwoffzumhbeyfj.supabase.co
+Dashboard: https://supabase.com/dashboard/project/zkpaqrzwoffzumhbeyfj
+
+
+DATABASE CREDENTIALS (Already in your .env)
+-------------------------------------------
+DB_HOST=aws-1-us-east-2.pooler.supabase.com
+DB_PORT=6543
+DB_NAME=postgres
+DB_USER=postgres.zkpaqrzwoffzumhbeyfj
+DB_PASSWORD=dmsL62VTD1LL6QDY
+
+
+STORAGE CREDENTIALS (Add to your .env)
+--------------------------------------
+SUPABASE_URL=https://zkpaqrzwoffzumhbeyfj.supabase.co
+SUPABASE_KEY=<Get from Supabase Dashboard → Settings → API → anon/public key>
+
+
+YOUR STORAGE BUCKETS
+--------------------
+1. profilepic   - For user profile pictures
+2. Uploadfiles  - For training materials and certificates
+
+
+HOW TO GET YOUR SUPABASE_KEY
+-----------------------------
+1. Go to: https://supabase.com/dashboard/project/zkpaqrzwoffzumhbeyfj
+2. Click: Settings (gear icon in left sidebar)
+3. Click: API
+4. Copy: "anon" key or "public" key (they're the same)
+5. It starts with: eyJ...
+6. Paste it in your .env file as SUPABASE_KEY
+
+
+QUICK SETUP COMMANDS
+--------------------
+# 1. Add SUPABASE_KEY to .env file
+# 2. Install requests package
+pip install requests
+
+# 3. Run migrations
+python manage.py migrate dashboard
+
+# 4. Test database connection
+python manage.py check --database default
+
+# 5. Run server
+python manage.py runserver
+
+
+FILE UPLOAD EXAMPLES
+--------------------
+# Upload profile picture
+from dashboard.supabase_utils import upload_profile_picture
+success, url, error = upload_profile_picture(user_id=1, file=uploaded_file)
+
+# Upload training material
+from dashboard.supabase_utils import upload_training_material
+success, url, error = upload_training_material(course_id=1, file=uploaded_file)
+
+# Upload certificate
+from dashboard.supabase_utils import upload_certificate
+success, url, error = upload_certificate(enrollment_id=1, file=pdf_file)
+
+
+NAVIGATION MENU URLS
+--------------------
+Training Catalog:  /dashboard/training/catalog/
+My Training:       /dashboard/training/my-training/
+Assign Training:   /dashboard/training/assign/
+Certifications:    /dashboard/certifications/
+
+
+ADMIN INTERFACE
+---------------
+Django Admin:      /admin/
+Training Courses:  /admin/dashboard/trainingcourse/
+Training Materials: /admin/dashboard/trainingmaterial/
+Certificates:      /admin/dashboard/certificate/
+Enrollments:       /admin/dashboard/enrollment/
+
+
+TROUBLESHOOTING
+---------------
+Problem: Can't connect to database
+Solution: Check DB_HOST, DB_PORT, DB_USER, DB_PASSWORD in .env
+
+Problem: File upload fails
+Solution: Check SUPABASE_URL and SUPABASE_KEY in .env
+
+Problem: Migrations not applied
+Solution: Run: python manage.py migrate dashboard
+
+Problem: Tables don't exist
+Solution: Run: python manage.py makemigrations && python manage.py migrate
+
+
+USEFUL LINKS
+------------
+Supabase Dashboard:    https://supabase.com/dashboard
+Your Project:          https://supabase.com/dashboard/project/zkpaqrzwoffzumhbeyfj
+Storage Browser:       https://supabase.com/dashboard/project/zkpaqrzwoffzumhbeyfj/storage/buckets
+API Settings:          https://supabase.com/dashboard/project/zkpaqrzwoffzumhbeyfj/settings/api
+Database:              https://supabase.com/dashboard/project/zkpaqrzwoffzumhbeyfj/database/tables
+
+
+NEXT STEPS
+----------
+1. ✅ Add SUPABASE_KEY to .env
+2. ✅ Run migrations
+3. ✅ Test in Django Admin
+4. ⏳ Create training courses
+5. ⏳ Upload training materials
+6. ⏳ Test file uploads
+7. ⏳ Generate certificates
+
+
+SUPPORT
+-------
+Documentation: See USER_STORIES_IMPLEMENTATION.md
+Setup Guide: See SUPABASE_SETUP_GUIDE.md
+Navigation: See NAVIGATION_MENU_IMPLEMENTATION.md
+
+================================================================================

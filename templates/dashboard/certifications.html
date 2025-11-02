@@ -61,7 +61,7 @@
 <div class="stats-row mb-4">
   <div class="stat-card">
     <div class="stat-info">
-      <h3>0</h3>
+      <h3>{{ certificates|length }}</h3>
       <p>Active Certifications</p>
       <span class="stat-change">
         <i class="fas fa-check-circle"></i> Valid
@@ -100,7 +100,7 @@
 
   <div class="stat-card">
     <div class="stat-info">
-      <h3>0</h3>
+      <h3>{{ certificates|length }}</h3>
       <p>Total Certifications</p>
       <span class="stat-change">
         <i class="fas fa-list"></i> All time
@@ -122,22 +122,74 @@
         <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
       </div>
       <div class="card-body">
-        <div class="alert alert-info alert-soft-info">
-          <i class="fas fa-info-circle me-2"></i>
-          Certification management features will be implemented in future sprints.
-        </div>
-
-        <div class="text-center py-5">
-          <div class="mb-4 d-flex align-items-center justify-content-center rounded-circle"
-               style="width:80px;height:80px;background: rgba(245,158,11,0.10); margin:0 auto;">
-            <i class="fas fa-certificate fa-2x" style="color: var(--warning-color);"></i>
+        {% if certificates %}
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Certificate #</th>
+                  <th>Course</th>
+                  <th>Issue Date</th>
+                  <th>Expiry</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for cert in certificates %}
+                <tr>
+                  <td><strong>{{ cert.certificate_number }}</strong></td>
+                  <td>{{ cert.enrollment.course.title }}</td>
+                  <td>{{ cert.issue_date|date:"M d, Y" }}</td>
+                  <td>
+                    {% if cert.expiry_date %}
+                      {{ cert.expiry_date|date:"M d, Y" }}
+                    {% else %}
+                      <span class="text-muted">No expiry</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if cert.status == 'issued' %}
+                      <span class="badge bg-success">
+                        <i class="fas fa-check me-1"></i>Valid
+                      </span>
+                    {% elif cert.status == 'revoked' %}
+                      <span class="badge bg-danger">
+                        <i class="fas fa-ban me-1"></i>Revoked
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ cert.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if cert.certificate_url %}
+                      <a href="{{ cert.certificate_url }}" target="_blank" class="btn btn-sm btn-primary">
+                        <i class="fas fa-download me-1"></i>Download
+                      </a>
+                    {% else %}
+                      <button class="btn btn-sm btn-secondary" disabled>
+                        <i class="fas fa-hourglass-half me-1"></i>Pending
+                      </button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
-          <h5 class="text-muted mb-2">No certifications recorded</h5>
-          <p class="text-muted mb-4">Add your certifications to track their expiry dates.</p>
-          <button class="btn btn-primary">
-            <i class="fas fa-plus me-2"></i>Add Certification
-          </button>
-        </div>
+        {% else %}
+          <div class="text-center py-5">
+            <div class="mb-4 d-flex align-items-center justify-content-center rounded-circle"
+                 style="width:80px;height:80px;background: rgba(245,158,11,0.10); margin:0 auto;">
+              <i class="fas fa-certificate fa-2x" style="color: var(--warning-color);"></i>
+            </div>
+            <h5 class="text-muted mb-2">No certifications recorded</h5>
+            <p class="text-muted mb-4">Complete training courses to earn certificates.</p>
+            <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-primary">
+              <i class="fas fa-search me-2"></i>Browse Courses
+            </a>
+          </div>
+        {% endif %}
       </div>
     </div>
 
