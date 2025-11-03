@@ -490,20 +490,22 @@ def admin_user_edit(request, user_id):
 @user_passes_test(is_superuser)
 def admin_user_delete(request, user_id):
     """Delete a user"""
+    user_to_delete = get_object_or_404(CustomUser, id=user_id)
+    
+    # Prevent deleting yourself
+    if user_to_delete.id == request.user.id:
+        messages.error(request, 'You cannot delete your own account.')
+        return redirect('dashboard:admin_user_detail', user_id=user_id)
+    
     if request.method == 'POST':
-        user = get_object_or_404(CustomUser, id=user_id)
-        
-        # Prevent deleting self
-        if user.id == request.user.id:
-            messages.error(request, 'You cannot delete your own account.')
-            return redirect('dashboard:admin_user_detail', user_id=user_id)
-        
-        username = user.username
-        user.delete()
+        username = user_to_delete.username
+        user_to_delete.delete()
         messages.success(request, f'User {username} deleted successfully.')
         return redirect('dashboard:admin_users_list')
     
-    return redirect('dashboard:admin_users_list')
+    # GET request → show confirmation template
+    context = {'selected_user': user_to_delete}
+    return render(request, 'dashboard/admin_user_delete.html', context)
 
 
 @login_required

@@ -224,9 +224,27 @@
 
 {% if messages %}
     {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 10px; background: {% if message.tags == 'success' %}#d1fae5{% elif message.tags == 'error' %}#fee2e2{% else %}#fef3c7{% endif %};">
-        {{ message }}
-    </div>
+        <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-error{% else %}alert-warning{% endif %}">
+  {{ message }}
+</div>
+
+<style>
+.alert {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+}
+.alert-success {
+  background: #d1fae5;
+}
+.alert-error {
+  background: #fee2e2;
+}
+.alert-warning {
+  background: #fef3c7;
+}
+</style>
+
     {% endfor %}
 {% endif %}
 

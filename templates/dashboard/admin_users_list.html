@@ -212,11 +212,14 @@
 </div>
 
 {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 10px; background: {% if message.tags == 'success' %}#d1fae5{% elif message.tags == 'error' %}#fee2e2{% else %}#fef3c7{% endif %};">
-        {{ message }}
+  {% for message in messages %}
+    <div class="alert 
+      {% if message.tags == 'success' %}alert-success
+      {% elif message.tags == 'error' %}alert-error
+      {% else %}alert-warning{% endif %}">
+      {{ message }}
     </div>
-    {% endfor %}
+  {% endfor %}
 {% endif %}
 
 <div class="search-filter-section">
@@ -226,19 +229,27 @@
     </form>
     
     <div class="filters">
-        <select name="user_type" onchange="this.form.submit()">
-            <option value="">All User Types</option>
-            <option value="student" {% if user_type == 'student' %}selected{% endif %}>Students</option>
-            <option value="employee" {% if user_type == 'employee' %}selected{% endif %}>Employees</option>
-        </select>
-        
-        <select name="status" onchange="this.form.submit()">
-            <option value="">All Status</option>
-            <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
-            <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
-        </select>
+        <form method="get" style="display: flex; gap: 1rem;">
+            <select name="user_type" onchange="this.form.submit()">
+                <option value="">All User Types</option>
+                <option value="student" {% if user_type == 'student' %}selected{% endif %}>Students</option>
+                <option value="employee" {% if user_type == 'employee' %}selected{% endif %}>Employees</option>
+                <option value="admin" {% if user_type == 'admin' %}selected{% endif %}>Administrators</option>
+            </select>
+
+            <select name="status" onchange="this.form.submit()">
+                <option value="">All Status</option>
+                <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+            </select>
+
+            {% if search_query %}
+                <input type="hidden" name="search" value="{{ search_query }}">
+            {% endif %}
+        </form>
     </div>
 </div>
+
 
 {% if page_obj %}
 <div class="users-table">
@@ -316,3 +327,22 @@
 </div>
 {% endif %}
 {% endblock %}
+
+.alert {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+}
+
+.alert-success {
+  background: #d1fae5;
+}
+
+.alert-error {
+  background: #fee2e2;
+}
+
+.alert-warning {
+  background: #fef3c7;
+}
+
