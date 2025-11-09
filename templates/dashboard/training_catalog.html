@@ -20,6 +20,18 @@
     --transition-base: 0.2s;
 }
 
+.btn-purple {
+    background-color: #6f42c1; /* Purple */
+    border-color: #6f42c1;
+    color: white;
+}
+
+.btn-purple:hover {
+    background-color: #5936a2; /* Darker purple on hover */
+    border-color: #5936a2;
+    color: white;
+}
+
 .course-card {
     background: white;
     border-radius: var(--radius-xl);
@@ -103,15 +115,16 @@
 }
 
 .course-description {
-    color: #6b7280;
-    line-height: 1.6;
-    margin-bottom: 1rem;
-    flex: 1;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+
+    display: box;            /* fallback for old browsers */
+    line-clamp: 3;           /* standard property */
+    box-orient: vertical;    /* standard property */
 }
+
 
 .course-footer {
     display: flex;
@@ -185,9 +198,19 @@
         </p>
     </div>
     {% if user.is_superuser %}
-    <a href="{% url 'dashboard:assign_training' %}" class="btn btn-primary">
-        <i class="fas fa-user-plus me-2"></i>Assign Training
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'dashboard:assign_training' %}" class="btn btn-purple">
+            <i class="fas fa-user-plus me-2"></i>Assign Training
+        </a>
+
+        <a href="{% url 'dashboard:create_training' %}" class="btn btn-purple">
+            <i class="fas fa-plus me-1"></i>New Training
+        </a>
+
+        <a href="{% url 'dashboard:archive_training' %}" class="btn btn-purple">
+            <i class="fas fa-archive me-1"></i>Archive Training
+        </a>
+    </div>
     {% endif %}
 </div>
 
@@ -281,6 +304,14 @@
                     <p class="course-description">{{ course.description|safe }}</p>
 
                     <div class="course-footer mt-auto">
+                        {% if user.is_superuser %}
+                        <form method="post" action="{% url 'dashboard:archive_course' course.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-warning">
+                                <i class="fas fa-archive me-1"></i>Archive
+                            </button>
+                        </form>
+                        {% endif %}
                         {% if course.id in user_enrollments %}
                             <div class="enrollment-status text-success">
                                 <i class="fas fa-check-circle"></i>

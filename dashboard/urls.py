@@ -36,4 +36,10 @@ urlpatterns = [
     path('admin/users/<int:user_id>/edit/', views.admin_user_edit, name='admin_user_edit'),
     path('admin/users/<int:user_id>/delete/', views.admin_user_delete, name='admin_user_delete'),
     path('admin/users/<int:user_id>/toggle-status/', views.admin_user_toggle_status, name='admin_user_toggle_status'),
+
+    # Admin: Assign & Create training
+    path('training/assign/', views.assign_training, name='assign_training'),
+    path('training/create/', views.create_training, name='create_training'),
+    path('training/course/<int:course_id>/archive/', views.archive_course, name='archive_course'),
+    path('training/archive/', views.archive_training, name='archive_training'),
 ]

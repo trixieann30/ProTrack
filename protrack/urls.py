@@ -27,6 +27,8 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),  # Google OAuth URLs - same path but loaded second
     path('user/', include('accounts.urls')),
     path('dashboard/', include('dashboard.urls')),
+    path('api/training/', include('training.urls')),
+
 ]
 
 if settings.DEBUG:

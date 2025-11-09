@@ -67,6 +67,71 @@ def dashboard(request):
 def training(request):
     return render(request, 'dashboard/training.html')
 
+@login_required
+@user_passes_test(is_superuser)
+def create_training(request):
+    """Admin view to create a new training course"""
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        instructor = request.POST.get('instructor')
+        duration_hours = request.POST.get('duration_hours')
+        level = request.POST.get('level')
+        category_id = request.POST.get('category')
+        status = request.POST.get('status', 'active')
+        
+        # Get category safely
+        category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
+        
+        # Create TrainingCourse
+        course = TrainingCourse.objects.create(
+            title=title,
+            description=description,
+            instructor=instructor,
+            duration_hours=duration_hours,
+            level=level,
+            category=category,
+            status=status
+        )
+        
+        messages.success(request, f'Training "{title}" created successfully.')
+        return redirect('dashboard:training_catalog')
+    
+    # GET request → show form
+    categories = TrainingCategory.objects.all()
+    level_choices = TrainingCourse.LEVEL_CHOICES  # if you have LEVEL_CHOICES in model
+    context = {
+        'categories': categories,
+        'level_choices': level_choices,
+    }
+    return render(request, 'dashboard/create_training.html', context)
+
+@login_required
+@user_passes_test(is_superuser)
+def archive_course(request, course_id):
+    """Archive a training course (set status to 'archived')"""
+    course = get_object_or_404(TrainingCourse, id=course_id)
+    
+    if request.method == 'POST':
+        course.status = 'archived'
+        course.save()
+        messages.success(request, f'Course "{course.title}" has been archived.')
+        return redirect('dashboard:training_catalog')
+    
+    # Optional: show confirmation page
+    context = {'course': course}
+    return render(request, 'dashboard/archive_course_confirm.html', context)
+
+@login_required
+@user_passes_test(is_superuser)
+def archive_training(request):
+    """Admin view to list all courses and allow archiving (optional page)."""
+    courses = TrainingCourse.objects.filter(status='active')
+    
+    context = {
+        'courses': courses,
+    }
+    return render(request, 'dashboard/archive_training.html', context)
 
 @login_required
 def certifications(request):
@@ -319,6 +384,43 @@ def assign_training(request):
     }
     return render(request, 'dashboard/assign_training.html', context)
 
+@login_required
+@user_passes_test(is_superuser)
+def create_training(request):
+    """Admin view to create a new training course"""
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        instructor = request.POST.get('instructor')
+        duration_hours = request.POST.get('duration_hours')
+        level = request.POST.get('level')
+        category_id = request.POST.get('category')
+        status = request.POST.get('status', 'active')
+
+        # Get category safely
+        category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
+
+        # Create the course
+        TrainingCourse.objects.create(
+            title=title,
+            description=description,
+            instructor=instructor,
+            duration_hours=duration_hours,
+            level=level,
+            category=category,
+            status=status
+        )
+        messages.success(request, f'Training "{title}" created successfully.')
+        return redirect('dashboard:training_catalog')
+
+    # GET request → show form
+    categories = TrainingCategory.objects.all()
+    level_choices = TrainingCourse.LEVEL_CHOICES
+    context = {
+        'categories': categories,
+        'level_choices': level_choices,
+    }
+    return render(request, 'dashboard/create_training.html', context)
 
 @login_required
 def get_course_sessions(request, course_id):

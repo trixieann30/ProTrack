@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     'accounts',
     'dashboard',
     'crispy_forms',
+    'rest_framework',
+    'training',
 ]
 
 SITE_ID = 1
