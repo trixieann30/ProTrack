@@ -8,6 +8,7 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('admin/', views.admin_dashboard, name='admin_dashboard'),
     path('user/', views.user_dashboard, name='user_dashboard'),
+    
     # Training catalog and enrollment
     path('training/', views.training_catalog, name='training'),
     path('training/catalog/', views.training_catalog, name='training_catalog'),
@@ -42,4 +43,6 @@ urlpatterns = [
     path('training/create/', views.create_training, name='create_training'),
     path('training/course/<int:course_id>/archive/', views.archive_course, name='archive_course'),
     path('training/archive/', views.archive_training, name='archive_training'),
+    path('dashboard/training/archived/', views.archived_courses, name='archived_courses'),
+    path('training/restore/<int:course_id>/', views.restore_course, name='restore_course'),
 ]

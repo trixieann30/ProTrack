@@ -307,8 +307,8 @@
                         {% if user.is_superuser %}
                         <form method="post" action="{% url 'dashboard:archive_course' course.id %}">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-warning">
-                                <i class="fas fa-archive me-1"></i>Archive
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-archive me-1"></i> Archive
                             </button>
                         </form>
                         {% endif %}

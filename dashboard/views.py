@@ -10,6 +10,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from accounts.models import CustomUser
 from .models import TrainingCourse, TrainingCategory, TrainingSession, Enrollment, Certificate, TrainingMaterial
+from training.models import TrainingModule
 
 
 def is_superuser(user):
@@ -69,6 +70,49 @@ def training(request):
 
 @login_required
 @user_passes_test(is_superuser)
+def archived_courses(request, course_id):
+    if request.method == 'POST' and request.user.is_superuser:
+        course = get_object_or_404(TrainingModule, id=course_id)
+        course.status = 'archived'
+        course.save()
+    return redirect('dashboard:training_catalog')  # Redirect back to catalog
+
+@login_required
+@user_passes_test(is_superuser)
+def archive_training(request):
+    search_query = request.GET.get('search', '')
+    category_filter = request.GET.get('category', '')
+
+    # Only archived courses
+    courses = TrainingModule.objects.filter(status='archived')
+
+    if search_query:
+        courses = courses.filter(title__icontains=search_query)
+
+    if category_filter:
+        courses = courses.filter(category__icontains=category_filter)
+
+    categories = TrainingCategory.objects.all()
+
+    context = {
+        'courses': courses,
+        'search_query': search_query,
+        'category_filter': category_filter,
+        'categories': categories,
+    }
+    return render(request, 'dashboard/archive_training.html', context)
+
+@login_required
+@user_passes_test(is_superuser)
+def restore_course(request, course_id):
+    if request.method == 'POST':
+        course = get_object_or_404(TrainingModule, id=course_id)
+        course.status = 'published'  # or 'draft'
+        course.save()
+    return redirect('dashboard:archive_training')
+
+@login_required
+@user_passes_test(is_superuser)
 def create_training(request):
     """Admin view to create a new training course"""
     if request.method == 'POST':
@@ -84,7 +128,7 @@ def create_training(request):
         category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
         
         # Create TrainingCourse
-        course = TrainingCourse.objects.create(
+        course = TrainingModule.objects.create(
             title=title,
             description=description,
             instructor=instructor,
@@ -110,7 +154,7 @@ def create_training(request):
 @user_passes_test(is_superuser)
 def archive_course(request, course_id):
     """Archive a training course (set status to 'archived')"""
-    course = get_object_or_404(TrainingCourse, id=course_id)
+    course = get_object_or_404(TrainingModule, id=course_id)
     
     if request.method == 'POST':
         course.status = 'archived'
@@ -168,7 +212,7 @@ def certifications(request):
 @login_required
 def training_catalog(request):
     """Display all available training courses"""
-    courses = TrainingCourse.objects.filter(status='active').select_related('category')
+    courses = TrainingCourse.objects.filter(status='active')
     categories = TrainingCategory.objects.all()
     
     # Filter by user's program (for students and employees)
