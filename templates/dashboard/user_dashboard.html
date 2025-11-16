@@ -221,36 +221,36 @@
 <div class="stats-row">
     <div class="stat-card">
         <div class="stat-info">
-            <h3>0</h3>
-            <p>My Training Sessions</p>
+            <h3>{{ in_progress_count }}</h3>
+            <p>In Progress</p>
             <span class="stat-change">
-                <i class="fas fa-calendar"></i> Scheduled
+                <i class="fas fa-book-reader"></i> Active
             </span>
         </div>
         <div class="stat-icon">
-            <i class="fas fa-calendar-alt"></i>
+            <i class="fas fa-book-reader"></i>
         </div>
     </div>
     
     <div class="stat-card">
         <div class="stat-info">
-            <h3>0</h3>
-            <p>Certifications</p>
+            <h3>{{ completed_count }}</h3>
+            <p>Completed</p>
             <span class="stat-change">
-                <i class="fas fa-certificate"></i> Active
+                <i class="fas fa-check-circle"></i> Done
             </span>
         </div>
         <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-            <i class="fas fa-certificate"></i>
+            <i class="fas fa-check-circle"></i>
         </div>
     </div>
     
     <div class="stat-card">
         <div class="stat-info">
-            <h3>0</h3>
-            <p>Completed Hours</p>
+            <h3>{{ total_hours|floatformat:0 }}</h3>
+            <p>Hours Completed</p>
             <span class="stat-change">
-                <i class="fas fa-clock"></i> This Month
+                <i class="fas fa-clock"></i> Total
             </span>
         </div>
         <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
@@ -260,67 +260,132 @@
     
     <div class="stat-card">
         <div class="stat-info">
-            <h3>100%</h3>
-            <p>Profile Complete</p>
+            <h3>{{ avg_score|floatformat:1 }}%</h3>
+            <p>Average Score</p>
             <span class="stat-change">
-                <i class="fas fa-check-circle"></i> Updated
+                <i class="fas fa-star"></i> Performance
             </span>
         </div>
         <div class="stat-icon" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
-            <i class="fas fa-user-check"></i>
+            <i class="fas fa-chart-line"></i>
         </div>
     </div>
 </div>
 
 <!-- Dashboard Grid -->
 <div class="dashboard-grid">
-    <!-- Chart Card -->
+    <!-- My Progress Card -->
     <div class="chart-card">
         <div class="chart-header">
-            <h3>My Progress</h3>
-            <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+            <h3><i class="fas fa-graduation-cap me-2"></i>My Enrolled Courses</h3>
+            <a href="{% url 'dashboard:my_training' %}" class="btn btn-sm btn-primary">View All</a>
         </div>
-        <div class="chart-body">
-            <p class="text-muted">Your training progress will appear here</p>
-            <div style="height: 300px; background: #f9fafb; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                <i class="fas fa-chart-line fa-3x text-muted"></i>
-            </div>
+        <div class="chart-body" style="padding: 0;">
+            {% if active_enrollments %}
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <ul class="list-group list-group-flush">
+                        {% for enrollment in active_enrollments %}
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h6 class="mb-1"><strong>{{ enrollment.course.title }}</strong></h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-chalkboard-teacher me-1"></i>{{ enrollment.course.instructor }}
+                                        <span class="mx-2">|</span>
+                                        <i class="fas fa-clock me-1"></i>{{ enrollment.course.duration_hours }}h
+                                    </small>
+                                </div>
+                                <span class="badge" style="background: rgba(79,70,229,0.10); color: var(--primary-color);">
+                                    {{ enrollment.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ enrollment.progress_percentage }}%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" 
+                                     aria-valuenow="{{ enrollment.progress_percentage }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100"></div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <small class="text-muted">Progress: {{ enrollment.progress_percentage }}%</small>
+                                <a href="{% url 'dashboard:course_detail' enrollment.course.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-arrow-right me-1"></i>Continue
+                                </a>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted mb-2">No Active Enrollments</h5>
+                    <p class="text-muted mb-3">Start learning by enrolling in a course</p>
+                    <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>Browse Courses
+                    </a>
+                </div>
+            {% endif %}
         </div>
     </div>
     
-    <!-- Task Card -->
+    <!-- Quick Actions Card -->
     <div class="task-card">
         <div class="chart-header">
-            <h3>Quick Actions</h3>
-            <span class="chart-options"><i class="fas fa-ellipsis-h"></i></span>
+            <h3><i class="fas fa-bolt me-2"></i>Quick Actions</h3>
         </div>
         <ul class="task-list">
-            <li class="task-item">
-                <div class="task-checkbox"></div>
-                <div class="task-text">
-                    <strong>View Training Schedule</strong>
-                    <div class="task-date">Manage sessions</div>
-                </div>
-            </li>
-            <li class="task-item">
-                <div class="task-checkbox checked"></div>
-                <div class="task-text">
-                    <strong>Update Profile</strong>
-                    <div class="task-date">Personal info</div>
-                </div>
-            </li>
-            <li class="task-item">
-                <div class="task-checkbox"></div>
-                <div class="task-text">
-                    <strong>Manage Certifications</strong>
-                    <div class="task-date">Track expiry dates</div>
-                </div>
-            </li>
+            {% if quick_actions %}
+                {% for action in quick_actions %}
+                <li class="task-item">
+                    <a href="{% url action.url %}" class="d-flex align-items-center gap-3 text-decoration-none w-100">
+                        <div class="task-checkbox {% if action.priority == 'high' %}" style="border-color: #ef4444;{% endif %}">
+                            <i class="fas {{ action.icon }}" style="color: {% if action.priority == 'high' %}#ef4444{% else %}#667eea{% endif %};"></i>
+                        </div>
+                        <div class="task-text flex-grow-1">
+                            <strong>{{ action.title }}</strong>
+                            <div class="task-date">{{ action.description }}</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </a>
+                </li>
+                {% endfor %}
+            {% else %}
+                <li class="task-item">
+                    <div class="text-center w-100 py-3">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted mb-0">All caught up!</p>
+                    </div>
+                </li>
+            {% endif %}
         </ul>
-        <button class="add-task-btn">
-            <i class="fas fa-plus"></i>
-            Add Task
-        </button>
+        
+        <!-- Recent Certificates -->
+        {% if recent_certificates %}
+        <div class="chart-header" style="border-top: 1px solid #f3f4f6;">
+            <h3><i class="fas fa-certificate me-2"></i>Recent Certificates</h3>
+        </div>
+        <ul class="task-list">
+            {% for cert in recent_certificates %}
+            <li class="task-item">
+                <div class="d-flex align-items-center gap-3 w-100">
+                    <div style="width: 40px; height: 40px; background: rgba(16,185,129,0.10); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-award" style="color: #10b981;"></i>
+                    </div>
+                    <div class="task-text flex-grow-1">
+                        <strong>{{ cert.enrollment.course.title }}</strong>
+                        <div class="task-date">Issued: {{ cert.issue_date|date:"M d, Y" }}</div>
+                    </div>
+                    {% if cert.certificate_url %}
+                    <a href="{{ cert.certificate_url }}" target="_blank" class="btn btn-sm btn-success">
+                        <i class="fas fa-download"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

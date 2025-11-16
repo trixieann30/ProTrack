@@ -64,7 +64,18 @@ custom_login = CustomLoginView.as_view()
 @login_required
 def profile(request):
     profile, created = UserProfile.objects.get_or_create(user=request.user)
-    return render(request, 'accounts/profile.html', {'profile': profile})
+    
+    # Parse comma-separated skills and certifications into lists
+    skills_list = [skill.strip() for skill in profile.skills.split(',') if skill.strip()] if profile.skills else []
+    certifications_list = [cert.strip() for cert in profile.certifications.split(',') if cert.strip()] if profile.certifications else []
+    
+    context = {
+        'profile': profile,
+        'skills_list': skills_list,
+        'certifications_list': certifications_list,
+    }
+    
+    return render(request, 'accounts/profile.html', context)
 
 @login_required
 @login_required
