@@ -148,9 +148,485 @@
                     </div>
                     
                     <!-- Notification Icon -->
-                    <div class="dashboard-notifications">
-                        <i class="fas fa-bell"></i>
+                    <div class="dashboard-notifications" id="notificationBell">
+    <i class="fas fa-bell"></i>
+    <span class="notification-badge" id="notificationCount" style="display: none;">0</span>
+    
+    <!-- Notification Dropdown -->
+    <div class="notification-dropdown" id="notificationDropdown">
+        <div class="notification-header">
+            <h6>Notifications</h6>
+            <button class="btn-mark-all-read" id="markAllReadBtn">
+                Mark all as read
+            </button>
+        </div>
+        
+        <div class="notification-list" id="notificationList">
+            <!-- Notifications will be loaded here dynamically -->
+            <div class="notification-loading">
+                <i class="fas fa-spinner fa-spin"></i> Loading...
+            </div>
+        </div>
+        
+        <div class="notification-footer">
+            <a href="/dashboard/notifications/">View All Notifications</a>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Notification Bell Styles */
+.dashboard-notifications {
+    position: relative;
+    color: white;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.dashboard-notifications:hover {
+    color: #818cf8;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Notification Dropdown */
+.notification-dropdown {
+    position: absolute;
+    top: calc(100% + 15px);
+    right: 0;
+    width: 380px;
+    max-height: 500px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    display: none;
+    flex-direction: column;
+    z-index: 1000;
+    animation: slideDown 0.2s ease;
+}
+
+.notification-dropdown.show {
+    display: flex;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.notification-header h6 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.btn-mark-all-read {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-mark-all-read:hover {
+    background: rgba(79, 70, 229, 0.1);
+}
+
+.notification-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+.notification-item {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+}
+
+.notification-item:hover {
+    background: #f9fafb;
+}
+
+.notification-item.unread {
+    background: rgba(79, 70, 229, 0.05);
+}
+
+.notification-item.unread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--primary-color);
+}
+
+.notification-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.notification-icon.enrollment {
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary-color);
+}
+
+.notification-icon.certificate {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.notification-icon.completion {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.notification-icon.assignment {
+    background: rgba(6, 182, 212, 0.1);
+    color: #06b6d4;
+}
+
+.notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.notification-message {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.notification-time {
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.notification-loading,
+.notification-empty {
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: #9ca3af;
+}
+
+.notification-empty i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.notification-footer {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+}
+
+.notification-footer a {
+    color: var(--primary-color);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.notification-footer a:hover {
+    text-decoration: underline;
+}
+
+/* Delete button */
+.btn-delete-notification {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0.25rem;
+    opacity: 0;
+    transition: all 0.2s;
+}
+
+.notification-item:hover .btn-delete-notification {
+    opacity: 1;
+}
+
+.btn-delete-notification:hover {
+    color: #ef4444;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const notificationBell = document.getElementById('notificationBell');
+    const notificationDropdown = document.getElementById('notificationDropdown');
+    const notificationCount = document.getElementById('notificationCount');
+    const notificationList = document.getElementById('notificationList');
+    const markAllReadBtn = document.getElementById('markAllReadBtn');
+    
+    let isOpen = false;
+    
+    // Toggle dropdown
+    notificationBell.addEventListener('click', function(e) {
+        e.stopPropagation();
+        isOpen = !isOpen;
+        
+        if (isOpen) {
+            notificationDropdown.classList.add('show');
+            loadNotifications();
+        } else {
+            notificationDropdown.classList.remove('show');
+        }
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!notificationBell.contains(e.target) && !notificationDropdown.contains(e.target)) {
+            notificationDropdown.classList.remove('show');
+            isOpen = false;
+        }
+    });
+    
+    // Load notifications
+    function loadNotifications() {
+        fetch('/dashboard/api/notifications/')
+            .then(response => response.json())
+            .then(data => {
+                updateNotificationCount(data.unread_count);
+                renderNotifications(data.notifications);
+            })
+            .catch(error => {
+                console.error('Error loading notifications:', error);
+                notificationList.innerHTML = `
+                    <div class="notification-empty">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load notifications</p>
                     </div>
+                `;
+            });
+    }
+    
+    // Update notification count badge
+    function updateNotificationCount(count) {
+        if (count > 0) {
+            notificationCount.textContent = count > 99 ? '99+' : count;
+            notificationCount.style.display = 'flex';
+        } else {
+            notificationCount.style.display = 'none';
+        }
+    }
+    
+    // Render notifications
+    function renderNotifications(notifications) {
+        if (notifications.length === 0) {
+            notificationList.innerHTML = `
+                <div class="notification-empty">
+                    <i class="fas fa-bell-slash"></i>
+                    <p>No notifications yet</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = notifications.map(notif => `
+            <div class="notification-item ${notif.is_read ? '' : 'unread'}" 
+                 data-id="${notif.id}"
+                 data-link="${notif.link || '#'}">
+                <div style="display: flex; align-items: start;">
+                    <div class="notification-icon ${notif.type}">
+                        ${getNotificationIcon(notif.type)}
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-title">${notif.title}</div>
+                        <div class="notification-message">${notif.message}</div>
+                        <div class="notification-time">${notif.time_ago}</div>
+                    </div>
+                    <button class="btn-delete-notification" data-id="${notif.id}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        notificationList.innerHTML = html;
+        
+        // Add click handlers to notifications
+        document.querySelectorAll('.notification-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                if (!e.target.closest('.btn-delete-notification')) {
+                    handleNotificationClick(this);
+                }
+            });
+        });
+        
+        // Add click handlers to delete buttons
+        document.querySelectorAll('.btn-delete-notification').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                deleteNotification(this.dataset.id);
+            });
+        });
+    }
+    
+    // Get icon for notification type
+    function getNotificationIcon(type) {
+        const icons = {
+            'enrollment': '<i class="fas fa-user-plus"></i>',
+            'completion': '<i class="fas fa-check-circle"></i>',
+            'certificate': '<i class="fas fa-certificate"></i>',
+            'assignment': '<i class="fas fa-clipboard-list"></i>',
+            'reminder': '<i class="fas fa-bell"></i>',
+            'announcement': '<i class="fas fa-bullhorn"></i>',
+            'system': '<i class="fas fa-info-circle"></i>',
+        };
+        return icons[type] || '<i class="fas fa-bell"></i>';
+    }
+    
+    // Handle notification click
+    function handleNotificationClick(element) {
+        const notifId = element.dataset.id;
+        const link = element.dataset.link;
+        
+        // Mark as read
+        fetch(`/dashboard/api/notifications/${notifId}/read/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        }).then(() => {
+            element.classList.remove('unread');
+            loadNotifications(); // Refresh to update count
+        });
+        
+        // Navigate to link if provided
+        if (link && link !== '#') {
+            window.location.href = link;
+        }
+    }
+    
+    // Mark all as read
+    markAllReadBtn.addEventListener('click', function() {
+        fetch('/dashboard/api/notifications/mark-all-read/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  loadNotifications();
+              }
+          });
+    });
+    
+    // Delete notification
+    function deleteNotification(notifId) {
+        if (confirm('Delete this notification?')) {
+            fetch(`/dashboard/api/notifications/${notifId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      loadNotifications();
+                  }
+              });
+        }
+    }
+    
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Load initial notification count
+    loadNotifications();
+    
+    // Poll for new notifications every 30 seconds
+    setInterval(loadNotifications, 30000);
+});
+</script>
                 </div>
                 
                 <div class="dashboard-info">
