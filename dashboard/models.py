@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.urls import reverse
 
 
 class TrainingCategory(models.Model):
@@ -354,4 +355,70 @@ class Notification(models.Model):
             return related_object_user_profile_picture.url
         else:
             return None
-    
+
+    @classmethod
+    def create_enrollment_notification(cls, enrollment, assigned_by=None):
+        """Create a notification when a user enrolls in or is assigned to a course."""
+        user = enrollment.user
+        course = enrollment.course
+
+        # Distinguish between self-enrolled and admin-assigned training
+        if assigned_by is not None:
+            notification_type = 'assignment'
+            assigned_name = assigned_by.get_full_name() or assigned_by.username
+            title = 'New Training Assigned'
+            message = f'{assigned_name} assigned you to "{course.title}".' 
+        else:
+            notification_type = 'enrollment'
+            title = 'Enrollment Confirmed'
+            message = f'You have been enrolled in "{course.title}".'
+
+        link = reverse('dashboard:course_detail', args=[course.id])
+
+        return cls.objects.create(
+            user=user,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+            link=link,
+            related_enrollment=enrollment,
+        )
+
+    @classmethod
+    def create_completion_notification(cls, enrollment):
+        """Create a notification when a course is marked as completed for the user."""
+        user = enrollment.user
+        course = enrollment.course
+
+        title = 'Course Completed'
+        message = f'Great job! You completed "{course.title}".' 
+        link = reverse('dashboard:my_training')
+
+        return cls.objects.create(
+            user=user,
+            notification_type='completion',
+            title=title,
+            message=message,
+            link=link,
+            related_enrollment=enrollment,
+        )
+
+    @classmethod
+    def create_certificate_notification(cls, certificate):
+        """Create a notification when a certificate is issued for a completed course."""
+        enrollment = certificate.enrollment
+        user = enrollment.user
+        course = enrollment.course
+
+        title = 'Certificate Issued'
+        message = f'A certificate has been issued for "{course.title}".' 
+        link = certificate.certificate_url or reverse('dashboard:certifications')
+
+        return cls.objects.create(
+            user=user,
+            notification_type='certificate',
+            title=title,
+            message=message,
+            link=link,
+            related_certificate=certificate,
+        )
