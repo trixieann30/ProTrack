@@ -264,7 +264,7 @@
                     <div class="text-muted" style="font-size: 0.85rem;">Enrollment</div>
                     <strong>{{ course.enrolled_count }} / {{ course.max_participants }} students</strong>
                     <div class="progress-bar-custom mt-2">
-                        <div class="progress-fill" style="width: {{ course.enrolled_count|floatformat:0|add:0|mul:100|div:course.max_participants }}%;"></div>
+                        <div class="progress-fill" style="width: {{ enrollment_percentage }}%;"></div>
                     </div>
                 </div>
             </div>
