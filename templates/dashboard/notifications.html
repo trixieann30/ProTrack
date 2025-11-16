@@ -1,0 +1,174 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Notifications - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+.notification-page-item {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+}
+
+.notification-page-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.notification-page-item.unread {
+    background: rgba(79, 70, 229, 0.05);
+    border-left: 4px solid var(--primary-color);
+}
+
+.notification-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border: 2px solid #e5e7eb;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+
+.filter-btn:hover,
+.filter-btn.active {
+    border-color: var(--primary-color);
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary-color);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notification-page-header">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-bell me-2" style="color: var(--primary-color);"></i>
+            Notifications
+        </h2>
+        <p class="text-muted mb-0">
+            You have <strong>{{ unread_count }}</strong> unread notification{{ unread_count|pluralize }}
+        </p>
+    </div>
+    
+    <div class="filter-buttons">
+        <a href="?mark_read=all" class="btn btn-primary">
+            <i class="fas fa-check-double me-1"></i>
+            Mark All as Read
+        </a>
+    </div>
+</div>
+
+<div class="notifications-container">
+    {% if notifications %}
+        {% for notification in notifications %}
+        <div class="notification-page-item {% if not notification.is_read %}unread{% endif %}"
+             onclick="handleNotificationClick({{ notification.id }}, '{{ notification.link }}')">
+            <div class="d-flex align-items-start">
+                <div class="notification-icon {{ notification.notification_type }} me-3">
+                    {% if notification.notification_type == 'enrollment' %}
+                        <i class="fas fa-user-plus"></i>
+                    {% elif notification.notification_type == 'completion' %}
+                        <i class="fas fa-check-circle"></i>
+                    {% elif notification.notification_type == 'certificate' %}
+                        <i class="fas fa-certificate"></i>
+                    {% elif notification.notification_type == 'assignment' %}
+                        <i class="fas fa-clipboard-list"></i>
+                    {% else %}
+                        <i class="fas fa-bell"></i>
+                    {% endif %}
+                </div>
+                
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="mb-0">{{ notification.title }}</h5>
+                        <small class="text-muted">{{ notification.created_at|timesince }} ago</small>
+                    </div>
+                    <p class="text-muted mb-0">{{ notification.message }}</p>
+                </div>
+                
+                <button class="btn btn-sm btn-outline-danger ms-3" 
+                        onclick="event.stopPropagation(); deleteNotification({{ notification.id }})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-bell-slash fa-4x text-muted mb-3" style="opacity: 0.3;"></i>
+            <h4 class="text-muted">No notifications yet</h4>
+            <p class="text-muted">You'll see your notifications here when you have any</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function handleNotificationClick(notifId, link) {
+    // Mark as read
+    fetch(`/dashboard/api/notifications/${notifId}/read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        }
+    }).then(() => {
+        // Navigate if link provided
+        if (link && link !== '#') {
+            window.location.href = link;
+        } else {
+            // Reload to show updated state
+            location.reload();
+        }
+    });
+}
+
+function deleteNotification(notifId) {
+    if (confirm('Delete this notification?')) {
+        fetch(`/dashboard/api/notifications/${notifId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+            }
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  location.reload();
+              }
+          });
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

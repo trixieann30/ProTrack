@@ -11,6 +11,8 @@ from django.utils import timezone
 from accounts.models import CustomUser
 from .models import TrainingCourse, TrainingCategory, TrainingSession, Enrollment, Certificate, TrainingMaterial
 from training.models import TrainingModule
+from .models import Notification  
+from django.views.decorators.http import require_POST
 
 
 def is_superuser(user):
@@ -372,7 +374,6 @@ def course_detail(request, course_id):
     }
     return render(request, 'dashboard/course_detail.html', context)
 
-
 @login_required
 def enroll_course(request, course_id):
     """Enroll user in a training course"""
@@ -401,12 +402,15 @@ def enroll_course(request, course_id):
         if session_id:
             session = TrainingSession.objects.filter(id=session_id).first()
         
-        Enrollment.objects.create(
+        enrollment = Enrollment.objects.create(
             user=request.user,
             course=course,
             session=session,
             status='enrolled'
         )
+        
+        # CREATE NOTIFICATION - THIS IS NEW
+        Notification.create_enrollment_notification(enrollment)
         
         messages.success(request, f'Successfully enrolled in {course.title}!')
         return redirect('dashboard:my_training')
@@ -491,28 +495,44 @@ def cancel_enrollment(request, enrollment_id):
 def assign_training(request):
     """Admin view to assign training to users"""
     if request.method == 'POST':
-        user_id = request.POST.get('user_id')
+        user_ids = request.POST.getlist('user_ids')  # Support multiple users
         course_id = request.POST.get('course_id')
         session_id = request.POST.get('session_id')
         
         try:
-            user = CustomUser.objects.get(id=user_id)
             course = TrainingCourse.objects.get(id=course_id)
             session = TrainingSession.objects.get(id=session_id) if session_id else None
             
-            # Check if already enrolled
-            existing = Enrollment.objects.filter(user=user, course=course).first()
-            if existing:
-                messages.warning(request, f'{user.username} is already enrolled in {course.title}.')
-            else:
-                Enrollment.objects.create(
-                    user=user,
-                    course=course,
-                    session=session,
-                    status='enrolled',
-                    assigned_by=request.user
-                )
-                messages.success(request, f'Successfully assigned {course.title} to {user.username}.')
+            created_count = 0
+            for user_id in user_ids:
+                try:
+                    user = CustomUser.objects.get(id=user_id)
+                    
+                    # Check if already enrolled
+                    existing = Enrollment.objects.filter(user=user, course=course).first()
+                    if existing:
+                        messages.warning(request, f'{user.username} is already enrolled in {course.title}.')
+                        continue
+                    
+                    # Create enrollment
+                    enrollment = Enrollment.objects.create(
+                        user=user,
+                        course=course,
+                        session=session,
+                        status='enrolled',
+                        assigned_by=request.user
+                    )
+                    
+                    # CREATE NOTIFICATION - THIS IS NEW
+                    Notification.create_enrollment_notification(enrollment, assigned_by=request.user)
+                    
+                    created_count += 1
+                except CustomUser.DoesNotExist:
+                    continue
+            
+            if created_count > 0:
+                messages.success(request, f'Successfully assigned {course.title} to {created_count} user(s).')
+            
         except Exception as e:
             messages.error(request, f'Error assigning training: {str(e)}')
         
@@ -907,3 +927,105 @@ def reports(request):
     }
     
     return render(request, 'dashboard/reports.html', context)
+@login_required
+def notifications_list(request):
+    """Display all notifications for the user"""
+    notifications = Notification.objects.filter(user=request.user)[:50]
+    
+    # Mark as read if requested
+    mark_read = request.GET.get('mark_read')
+    if mark_read == 'all':
+        notifications.update(is_read=True)
+    
+    context = {
+        'notifications': notifications,
+        'unread_count': Notification.objects.filter(user=request.user, is_read=False).count()
+    }
+    return render(request, 'dashboard/notifications.html', context)
+
+@login_required
+def notifications_api(request):
+    """API endpoint to get notifications as JSON"""
+    notifications = Notification.objects.filter(
+        user=request.user
+    ).order_by('-created_at')[:20]
+    
+    data = {
+        'notifications': [
+            {
+                'id': n.id,
+                'type': n.notification_type,
+                'title': n.title,
+                'message': n.message,
+                'link': n.link,
+                'is_read': n.is_read,
+                'created_at': n.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'time_ago': get_time_ago(n.created_at),
+            }
+            for n in notifications
+        ],
+        'unread_count': Notification.objects.filter(user=request.user, is_read=False).count()
+    }
+    return JsonResponse(data)
+
+@login_required
+@require_POST
+def mark_notification_read(request, notification_id):
+    """Mark a single notification as read"""
+    try:
+        notification = Notification.objects.get(id=notification_id, user=request.user)
+        notification.mark_as_read()
+        return JsonResponse({'success': True})
+    except Notification.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
+
+@login_required
+@require_POST
+def mark_all_read(request):
+    """Mark all notifications as read for the current user"""
+    count = Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return JsonResponse({'success': True, 'marked_count': count})
+
+@login_required
+@require_POST
+def delete_notification(request, notification_id):
+    """Delete a notification"""
+    try:
+        notification = Notification.objects.get(id=notification_id, user=request.user)
+        notification.delete()
+        return JsonResponse({'success': True})
+    except Notification.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
+
+def get_time_ago(datetime_obj):
+    """Helper function to get human-readable time ago"""
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    now = timezone.now()
+    diff = now - datetime_obj
+    
+    if diff < timedelta(minutes=1):
+        return 'Just now'
+    elif diff < timedelta(hours=1):
+        minutes = int(diff.total_seconds() / 60)
+        return f'{minutes} minute{"s" if minutes != 1 else ""} ago'
+    elif diff < timedelta(days=1):
+        hours = int(diff.total_seconds() / 3600)
+        return f'{hours} hour{"s" if hours != 1 else ""} ago'
+    elif diff < timedelta(days=7):
+        days = diff.days
+        return f'{days} day{"s" if days != 1 else ""} ago'
+    else:
+        return datetime_obj.strftime('%b %d, %Y')
+    
+    return datetime_obj 
+
+    
+def create_course_completion_notification(enrollment):
+    """Call this when a course is marked as completed"""
+    Notification.create_completion_notification(enrollment)
+    
+def create_certificate_issued_notification(certificate):
+    """Call this when a certificate is issued"""
+    Notification.create_certificate_notification(certificate)
