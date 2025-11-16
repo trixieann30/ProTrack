@@ -150,10 +150,11 @@ def send_verification_email(request):
         messages.info(request, 'Your email is already verified!')
         return redirect('accounts:profile')
     
-    # Check if email is configured
-    if not settings.EMAIL_HOST_USER or settings.EMAIL_HOST_USER == 'your-email@gmail.com':
-        messages.error(request, 'Email service is not configured. Please contact the administrator.')
-        logger.error('Email not configured: EMAIL_HOST_USER not set')
+    # Check if email backend is configured
+    from django.conf import settings
+    if not hasattr(settings, 'SENDGRID_API_KEY') or not settings.SENDGRID_API_KEY:
+        messages.error(request, 'Email service not configured. Please contact administrator.')
+        logger.error('SendGrid API key not configured')
         return redirect('accounts:profile')
     
     try:
@@ -167,7 +168,7 @@ def send_verification_email(request):
             reverse('accounts:verify_email', kwargs={'token': token})
         )
         
-        # Email subject and message
+        # Email content
         subject = 'Verify Your Email - ProTrack'
         message = f"""Hello {user.get_full_name() or user.username},
 
@@ -179,16 +180,16 @@ Please verify your email address by clicking the link below:
 
 This link will expire in 24 hours.
 
-If you didn't create an account with ProTrack, please ignore this email.
+If you didn't create an account, please ignore this email.
 
 Best regards,
 The ProTrack Team
 """
         
-        # Log attempt
-        logger.info(f'Attempting to send verification email to {user.email}')
+        logger.info(f'📧 Sending verification email to {user.email}')
         
         # Send email
+        from django.core.mail import send_mail
         send_mail(
             subject,
             message,
@@ -197,15 +198,12 @@ The ProTrack Team
             fail_silently=False,
         )
         
-        logger.info(f'Verification email sent successfully to {user.email}')
-        messages.success(request, f'Verification email sent to {user.email}. Please check your inbox!')
+        logger.info(f'✅ Email sent successfully to {user.email}')
+        messages.success(request, f'Verification email sent to {user.email}. Check your inbox!')
         
     except Exception as e:
-        # Log the full error for debugging
-        logger.error(f'Failed to send verification email to {user.email}: {str(e)}', exc_info=True)
-        
-        # Show user-friendly error message
-        messages.error(request, 'Failed to send verification email. Please try again later or contact support.')
+        logger.error(f'❌ Email failed: {str(e)}', exc_info=True)
+        messages.error(request, f'Failed to send email: {str(e)[:100]}')
     
     return redirect('accounts:profile')
 

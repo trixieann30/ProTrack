@@ -220,18 +220,25 @@ CRISPY_TEMPLATE_PACK = 'bootstrap4'
 # Check if we're in production or have email configured
 IS_PRODUCTION = config('IS_PRODUCTION', default=False, cast=bool)
 
-if IS_PRODUCTION or config('EMAIL_HOST_USER', default=None):
-    # Production/Configured email using Gmail SMTP
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = 'smtp.gmail.com'
-    EMAIL_PORT = 587
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+if IS_PRODUCTION:
+    # SendGrid for production
+    SENDGRID_API_KEY = config('SENDGRID_API_KEY', default='')
     
-    # Email timeout settings
-    EMAIL_TIMEOUT = 30  # 30 seconds timeout
+    if SENDGRID_API_KEY and SENDGRID_API_KEY.startswith('SG.'):
+        EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
+        DEFAULT_FROM_EMAIL = 'ProTrack <trixieann750@gmail.com>'
+        print(f"✅ SendGrid configured!")
+    else:
+        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+        DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
+        print("⚠️ SendGrid not configured, using console backend")
+else:
+    # Development: Console backend
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
+    print("📧 Development mode - using console backend")
+
+EMAIL_TIMEOUT = 30
     
     # Server email for error reports
     SERVER_EMAIL = DEFAULT_FROM_EMAIL
