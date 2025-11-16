@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.views import LoginView
 from .forms import UserRegistrationForm, UserLoginForm, UserProfileForm
 from .models import CustomUser, UserProfile
+from dashboard.models import Notification
 from django.contrib.auth import logout
 from django.core.mail import send_mail
 from django.conf import settings
@@ -20,6 +21,19 @@ def register(request):
             
             # Create user profile
             UserProfile.objects.create(user=user)
+
+            # Create a welcome notification so new users see the bell badge
+            try:
+                Notification.objects.create(
+                    user=user,
+                    notification_type='system',
+                    title='Welcome to ProTrack!',
+                    message='Thank you for joining. Browse the Training Catalog to enroll in your first course.',
+                    link='/dashboard/training/catalog/',
+                )
+            except Exception:
+                # Fail silently if notifications table is not ready; core registration must still work
+                pass
             
             # Auto-login: Authenticate and login the user
             username = form.cleaned_data.get('username')
