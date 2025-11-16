@@ -239,17 +239,6 @@ else:
     print("📧 Development mode - using console backend")
 
     EMAIL_TIMEOUT = 30
-    
-    # Server email for error reports
-    SERVER_EMAIL = DEFAULT_FROM_EMAIL
-    
-    print(f"📧 Email configured: {EMAIL_HOST_USER}")  # Debug line
-else:
-    # Development: Console backend (prints emails to terminal)
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
-    print("📧 Using console email backend (development)")  # Debug line
-
 # ============================================
 # LOGGING CONFIGURATION (For debugging email issues)
 # ============================================
