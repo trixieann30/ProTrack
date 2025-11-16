@@ -220,3 +220,138 @@ class Certificate(models.Model):
         year = timezone.now().year
         random_num = random.randint(1000, 9999)
         return f"CERT-{year}-{random_num}"
+# Add this to your existing dashboard/models.py file
+
+class Notification(models.Model):
+    """User notifications for various events"""
+    NOTIFICATION_TYPES = (
+        ('enrollment', 'Training Enrollment'),
+        ('completion', 'Course Completion'),
+        ('certificate', 'Certificate Issued'),
+        ('assignment', 'Training Assigned'),
+        ('reminder', 'Reminder'),
+        ('announcement', 'Announcement'),
+        ('system', 'System Notification'),
+    )
+    
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE,
+        related_name='notifications'
+    )
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    link = models.CharField(max_length=500, blank=True, help_text='URL to navigate when clicked')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Optional: reference to related objects
+    related_enrollment = models.ForeignKey(
+        'Enrollment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications'
+    )    
+    related_certificate = models.ForeignKey(
+        'Certificate',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notifications'
+
+    )   
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.title}"
+    
+    def mark_as_read(self):
+        self.is_read = True
+        self.save()
+        
+    def mark_as_unread(self):
+        self.is_read = False
+        self.save() 
+
+    def is_unread(self):
+        return not self.is_read
+
+    def get_notification_type_display(self):
+        return dict(self.NOTIFICATION_TYPES)[self.notification_type]
+
+    def get_related_object(self):
+        if self.related_enrollment:
+            return self.related_enrollment
+        elif self.related_certificate:
+            return self.related_certificate
+        else:
+            return None
+
+    def get_related_object_type(self):
+        if self.related_enrollment:
+            return 'enrollment'
+        elif self.related_certificate:
+            return 'certificate'
+        else:
+            return None
+
+    def get_related_object_url(self):
+        related_object = self.get_related_object()
+        if related_object:
+            return related_object.get_absolute_url()
+        else:
+            return None
+    
+    def get_related_object_title(self):
+        related_object = self.get_related_object()
+        if related_object:
+            return related_object.title
+        else:
+            return None
+
+    def get_related_object_user(self):
+        related_object = self.get_related_object()
+        if related_object:
+            return related_object.user
+        else:
+            return None
+
+    def get_related_object_user_name(self):
+        related_object_user = self.get_related_object_user()
+        if related_object_user:
+            return related_object_user.username
+        else:
+            return None
+
+    def get_related_object_user_email(self):
+        related_object_user = self.get_related_object_user()
+        if related_object_user:
+            return related_object_user.email
+        else:
+            return None
+    
+    def get_related_object_user_full_name(self):
+        related_object_user = self.get_related_object_user()
+        if related_object_user:
+            return related_object_user.get_full_name()
+        else:
+            return None
+
+    def get_related_object_user_profile_picture(self):
+        related_object_user = self.get_related_object_user()
+        if related_object_user:
+            return related_object_user.profile_picture
+        else:
+            return None
+
+    def get_related_object_user_profile_picture_url(self):
+        related_object_user_profile_picture = self.get_related_object_user_profile_picture()
+        if related_object_user_profile_picture:
+            return related_object_user_profile_picture.url
+        else:
+            return None
+    
