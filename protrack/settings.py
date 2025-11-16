@@ -238,7 +238,7 @@ else:
     DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
     print("📧 Development mode - using console backend")
 
-EMAIL_TIMEOUT = 30
+    EMAIL_TIMEOUT = 30
     
     # Server email for error reports
     SERVER_EMAIL = DEFAULT_FROM_EMAIL
