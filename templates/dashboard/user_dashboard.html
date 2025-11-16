@@ -7,8 +7,8 @@
 <style>
 /* Enhanced Stats Cards */
 .stats-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
@@ -23,6 +23,8 @@
     justify-content: space-between;
     transition: all 0.3s ease;
     border: 1px solid rgba(0, 0, 0, 0.05);
+    flex: 1;
+    min-width: 280px;
 }
 
 .stat-card:hover {
@@ -160,6 +162,14 @@
     font-size: 0.75rem;
 }
 
+.task-checkbox.high-priority {
+    border-color: #ef4444;
+}
+
+.task-checkbox .high-icon {
+    color: #ef4444;
+}
+
 .task-text strong {
     display: block;
     color: #1f2937;
@@ -169,6 +179,10 @@
 .task-date {
     font-size: 0.875rem;
     color: #9ca3af;
+}
+
+.progress-bar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .add-task-btn {
@@ -208,6 +222,16 @@
     opacity: 0.9;
 }
 </style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set progress bar widths from data attributes
+    const progressBars = document.querySelectorAll('.progress-bar[data-width]');
+    progressBars.forEach(bar => {
+        const width = bar.getAttribute('data-width');
+        bar.style.width = width + '%';
+    });
+});
+</script>
 {% endblock %}
 
 {% block content %}
@@ -301,7 +325,7 @@
                             </div>
                             <div class="progress" style="height: 8px;">
                                 <div class="progress-bar" role="progressbar" 
-                                     style="width: {{ enrollment.progress_percentage }}%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" 
+                                     data-width="{{ enrollment.progress_percentage }}"
                                      aria-valuenow="{{ enrollment.progress_percentage }}" 
                                      aria-valuemin="0" 
                                      aria-valuemax="100"></div>
@@ -339,8 +363,8 @@
                 {% for action in quick_actions %}
                 <li class="task-item">
                     <a href="{% url action.url %}" class="d-flex align-items-center gap-3 text-decoration-none w-100">
-                        <div class="task-checkbox {% if action.priority == 'high' %}" style="border-color: #ef4444;{% endif %}">
-                            <i class="fas {{ action.icon }}" style="color: {% if action.priority == 'high' %}#ef4444{% else %}#667eea{% endif %};"></i>
+                        <div class="task-checkbox{% if action.priority == 'high' %} high-priority{% endif %}">
+                            <i class="fas {{ action.icon }}{% if action.priority == 'high' %} high-icon{% endif %}"></i>
                         </div>
                         <div class="task-text flex-grow-1">
                             <strong>{{ action.title }}</strong>
