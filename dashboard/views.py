@@ -358,7 +358,6 @@ def training_catalog(request):
 def course_detail(request, course_id):
     """Display detailed information about a specific course"""
     course = get_object_or_404(TrainingCourse, id=course_id)
-    sessions = course.sessions.filter(start_date__gte=timezone.now().date())
     
     # Check if user is already enrolled
     is_enrolled = Enrollment.objects.filter(
@@ -367,11 +366,40 @@ def course_detail(request, course_id):
         status__in=['pending', 'enrolled', 'in_progress']
     ).exists()
     
+    # Get enrollment if exists
+    enrollment = None
+    if is_enrolled:
+        enrollment = Enrollment.objects.filter(
+            user=request.user,
+            course=course,
+            status__in=['pending', 'enrolled', 'in_progress']
+        ).first()
+    
+    # Calculate enrollment percentage (THIS IS NEW)
+    if course.max_participants > 0:
+        enrollment_percentage = round((course.enrolled_count / course.max_participants) * 100, 1)
+    else:
+        enrollment_percentage = 0
+    
+    # Get upcoming sessions
+    upcoming_sessions = course.sessions.filter(
+        start_date__gte=timezone.now().date()
+    ).order_by('start_date')[:5]
+    
+    # Get recent enrollments (for admin)
+    recent_enrollments = None
+    if request.user.is_superuser:
+        recent_enrollments = course.enrollments.select_related('user').order_by('-enrolled_date')[:10]
+    
     context = {
         'course': course,
-        'sessions': sessions,
         'is_enrolled': is_enrolled,
+        'enrollment': enrollment,
+        'enrollment_percentage': enrollment_percentage,  # ADD THIS LINE
+        'upcoming_sessions': upcoming_sessions,
+        'recent_enrollments': recent_enrollments,
     }
+    
     return render(request, 'dashboard/course_detail.html', context)
 
 @login_required
