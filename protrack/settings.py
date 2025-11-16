@@ -226,12 +226,13 @@ if IS_PRODUCTION:
     
     if SENDGRID_API_KEY and SENDGRID_API_KEY.startswith('SG.'):
         EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
+        SENDGRID_SANDBOX_MODE_IN_DEBUG = False
         DEFAULT_FROM_EMAIL = 'ProTrack <trixieann750@gmail.com>'
-        print(f"✅ SendGrid configured!")
+        print(f"✅ SendGrid configured with key: {SENDGRID_API_KEY[:10]}...")
     else:
         EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
         DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
-        print("⚠️ SendGrid not configured, using console backend")
+        print("⚠️ SendGrid API key not found, using console backend")
 else:
     # Development: Console backend
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
