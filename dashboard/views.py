@@ -41,15 +41,115 @@ def admin_dashboard(request):
 @login_required
 def user_dashboard(request):
     """User dashboard - for regular users (students and employees)"""
+    from django.db.models import Avg, Sum
+    
     user = request.user
     
     # Redirect superusers to admin dashboard
     if user.is_superuser:
         return redirect('dashboard:admin_dashboard')
     
-    # Regular users see their own statistics
+    # Get user's enrollments
+    enrollments = Enrollment.objects.filter(user=user).select_related('course', 'session')
+    
+    # Active enrollments (in progress)
+    active_enrollments = enrollments.filter(status__in=['enrolled', 'in_progress']).order_by('-enrolled_date')[:5]
+    
+    # Completed enrollments
+    completed_enrollments = enrollments.filter(status='completed')
+    
+    # Statistics
+    total_enrollments = enrollments.count()
+    in_progress_count = enrollments.filter(status='in_progress').count()
+    completed_count = completed_enrollments.count()
+    
+    # Calculate completion rate
+    completion_rate = round((completed_count / total_enrollments * 100), 1) if total_enrollments > 0 else 0
+    
+    # Total hours completed
+    total_hours = completed_enrollments.aggregate(
+        total=Sum('course__duration_hours')
+    )['total'] or 0
+    
+    # Average score
+    avg_score = completed_enrollments.filter(
+        score__isnull=False
+    ).aggregate(Avg('score'))['score__avg']
+    avg_score = round(avg_score, 1) if avg_score else 0
+    
+    # Recent certificates
+    recent_certificates = Certificate.objects.filter(
+        enrollment__user=user,
+        status='issued'
+    ).select_related('enrollment__course').order_by('-issue_date')[:3]
+    
+    # Upcoming sessions (for enrolled courses)
+    from django.utils import timezone
+    upcoming_sessions = TrainingSession.objects.filter(
+        enrollments__user=user,
+        start_date__gte=timezone.now().date()
+    ).select_related('course').order_by('start_date')[:5]
+    
+    # Quick actions checklist
+    quick_actions = []
+    
+    # Check if user has incomplete profile
+    if not user.first_name or not user.last_name:
+        quick_actions.append({
+            'title': 'Complete Your Profile',
+            'description': 'Add your personal information',
+            'icon': 'fa-user-edit',
+            'url': 'accounts:edit_profile',
+            'priority': 'high'
+        })
+    
+    # Check if user has active enrollments
+    if in_progress_count > 0:
+        quick_actions.append({
+            'title': 'Continue Learning',
+            'description': f'{in_progress_count} course(s) in progress',
+            'icon': 'fa-book-reader',
+            'url': 'dashboard:my_training',
+            'priority': 'medium'
+        })
+    
+    # Check if user has no enrollments
+    if total_enrollments == 0:
+        quick_actions.append({
+            'title': 'Browse Training Catalog',
+            'description': 'Discover available courses',
+            'icon': 'fa-graduation-cap',
+            'url': 'dashboard:training_catalog',
+            'priority': 'high'
+        })
+    
+    # Check for certificates to claim
+    pending_certificates = Certificate.objects.filter(
+        enrollment__user=user,
+        status='pending'
+    ).count()
+    
+    if pending_certificates > 0:
+        quick_actions.append({
+            'title': 'Certificates Pending',
+            'description': f'{pending_certificates} certificate(s) ready',
+            'icon': 'fa-certificate',
+            'url': 'dashboard:certifications',
+            'priority': 'medium'
+        })
+    
     context = {
         'user': user,
+        'active_enrollments': active_enrollments,
+        'total_enrollments': total_enrollments,
+        'in_progress_count': in_progress_count,
+        'completed_count': completed_count,
+        'completion_rate': completion_rate,
+        'total_hours': total_hours,
+        'avg_score': avg_score,
+        'recent_certificates': recent_certificates,
+        'upcoming_sessions': upcoming_sessions,
+        'quick_actions': quick_actions,
     }
     
     return render(request, 'dashboard/user_dashboard.html', context)

@@ -40,6 +40,30 @@
 
   /* Ensure page inherits base dashboard background exactly */
   .dashboard-wrapper, .dashboard-content { background: var(--content-bg) !important; }
+
+  /* Custom scrollbar styling */
+  .scrollable-list::-webkit-scrollbar {
+    width: 8px;
+  }
+  .scrollable-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+  .scrollable-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+  }
+  .scrollable-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+
+  /* List item hover effect */
+  .list-group-item {
+    transition: background-color 0.2s ease;
+  }
+  .list-group-item:hover {
+    background-color: #f9fafb;
+  }
 </style>
 {% endblock %}
 
@@ -139,24 +163,34 @@
     <!-- Skills & Certifications -->
     <div class="row">
       <div class="col-md-6">
-        <div class="card">
+        <div class="card" style="height: 500px; display: flex; flex-direction: column;">
           <div class="chart-header">
-            <h3 style="font-size:1.1rem;">Skills</h3>
-            <span class="badge bg-primary">{{ profile.skills|length|default:"0" }}</span>
+            <h3 style="font-size:1.1rem;"><i class="fas fa-tools me-2"></i>Skills</h3>
           </div>
-          <div class="card-body">
-            {% if profile.skills %}
-              <div class="d-flex flex-wrap gap-2">
-                {% for skill in profile.skills|slice:":100" %}
-                  <span class="badge" style="background: rgba(6,182,212,0.10); color:#06b6d4; padding:0.5rem 0.875rem; border-radius:8px; font-weight:500;">
-                    {{ skill|title }}
-                  </span>
-                {% endfor %}
+          <div class="card-body p-0" style="flex: 1; overflow: hidden;">
+            {% if skills_list %}
+              <div class="scrollable-list" style="height: 100%; overflow-y: auto;">
+                <ul class="list-group list-group-flush">
+                  {% for skill in skills_list %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center" style="border-left: none; border-right: none;">
+                    <div>
+                      <strong style="color: #333;">{{ skill }}</strong>
+                      <div class="text-muted small">Skill</div>
+                    </div>
+                    <span class="badge" style="background: rgba(6,182,212,0.10); color:#06b6d4; padding:0.5rem 0.875rem; border-radius:8px; font-weight:500;">
+                      <i class="fas fa-check-circle me-1"></i>Active
+                    </span>
+                  </li>
+                  {% endfor %}
+                </ul>
               </div>
             {% else %}
-              <div class="text-center py-4">
-                <i class="fas fa-tools fa-2x text-muted mb-2"></i>
+              <div class="text-center py-5">
+                <i class="fas fa-tools fa-3x text-muted mb-3"></i>
                 <p class="text-muted mb-0">No skills listed yet.</p>
+                <a href="{% url 'accounts:edit_profile' %}" class="btn btn-sm btn-primary mt-2">
+                  <i class="fas fa-plus me-1"></i>Add Skills
+                </a>
               </div>
             {% endif %}
           </div>
@@ -164,24 +198,34 @@
       </div>
 
       <div class="col-md-6">
-        <div class="card">
+        <div class="card" style="height: 500px; display: flex; flex-direction: column;">
           <div class="chart-header">
-            <h3 style="font-size:1.1rem;">Certifications</h3>
-            <span class="badge bg-success">{{ profile.certifications|length|default:"0" }}</span>
+            <h3 style="font-size:1.1rem;"><i class="fas fa-certificate me-2"></i>Certifications</h3>
           </div>
-          <div class="card-body">
-            {% if profile.certifications %}
-              <div class="d-flex flex-wrap gap-2">
-                {% for cert in profile.certifications|slice:":100" %}
-                  <span class="badge" style="background: rgba(16,185,129,0.10); color:#10b981; padding:0.5rem 0.875rem; border-radius:8px; font-weight:500;">
-                    {{ cert|title }}
-                  </span>
-                {% endfor %}
+          <div class="card-body p-0" style="flex: 1; overflow: hidden;">
+            {% if certifications_list %}
+              <div class="scrollable-list" style="height: 100%; overflow-y: auto;">
+                <ul class="list-group list-group-flush">
+                  {% for cert in certifications_list %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center" style="border-left: none; border-right: none;">
+                    <div>
+                      <strong style="color: #333;">{{ cert }}</strong>
+                      <div class="text-muted small">Certification</div>
+                    </div>
+                    <span class="badge" style="background: rgba(16,185,129,0.10); color:#10b981; padding:0.5rem 0.875rem; border-radius:8px; font-weight:500;">
+                      <i class="fas fa-award me-1"></i>Earned
+                    </span>
+                  </li>
+                  {% endfor %}
+                </ul>
               </div>
             {% else %}
-              <div class="text-center py-4">
-                <i class="fas fa-certificate fa-2x text-muted mb-2"></i>
+              <div class="text-center py-5">
+                <i class="fas fa-certificate fa-3x text-muted mb-3"></i>
                 <p class="text-muted mb-0">No certifications listed yet.</p>
+                <a href="{% url 'accounts:edit_profile' %}" class="btn btn-sm btn-success mt-2">
+                  <i class="fas fa-plus me-1"></i>Add Certifications
+                </a>
               </div>
             {% endif %}
           </div>
