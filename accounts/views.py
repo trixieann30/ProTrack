@@ -138,6 +138,8 @@ def custom_logout(request):
     messages.success(request, 'You have been successfully logged out.')
     return redirect('home')
 
+logger = logging.getLogger(__name__)
+
 @login_required
 def send_verification_email(request):
     """Send email verification link to user"""
@@ -148,20 +150,26 @@ def send_verification_email(request):
         messages.info(request, 'Your email is already verified!')
         return redirect('accounts:profile')
     
-    # Generate verification token
-    token = get_random_string(64)
-    user.email_verification_token = token
-    user.save()
+    # Check if email is configured
+    if not settings.EMAIL_HOST_USER or settings.EMAIL_HOST_USER == 'your-email@gmail.com':
+        messages.error(request, 'Email service is not configured. Please contact the administrator.')
+        logger.error('Email not configured: EMAIL_HOST_USER not set')
+        return redirect('accounts:profile')
     
-    # Build verification URL
-    verification_url = request.build_absolute_uri(
-        reverse('accounts:verify_email', kwargs={'token': token})
-    )
-    
-    # Email subject and message
-    subject = 'Verify Your Email - ProTrack'
-    message = f"""
-Hello {user.get_full_name() or user.username},
+    try:
+        # Generate verification token
+        token = get_random_string(64)
+        user.email_verification_token = token
+        user.save()
+        
+        # Build verification URL
+        verification_url = request.build_absolute_uri(
+            reverse('accounts:verify_email', kwargs={'token': token})
+        )
+        
+        # Email subject and message
+        subject = 'Verify Your Email - ProTrack'
+        message = f"""Hello {user.get_full_name() or user.username},
 
 Thank you for registering with ProTrack!
 
@@ -175,9 +183,12 @@ If you didn't create an account with ProTrack, please ignore this email.
 
 Best regards,
 The ProTrack Team
-    """
-    
-    try:
+"""
+        
+        # Log attempt
+        logger.info(f'Attempting to send verification email to {user.email}')
+        
+        # Send email
         send_mail(
             subject,
             message,
@@ -185,9 +196,16 @@ The ProTrack Team
             [user.email],
             fail_silently=False,
         )
+        
+        logger.info(f'Verification email sent successfully to {user.email}')
         messages.success(request, f'Verification email sent to {user.email}. Please check your inbox!')
+        
     except Exception as e:
-        messages.error(request, f'Failed to send email. Please try again later. Error: {str(e)}')
+        # Log the full error for debugging
+        logger.error(f'Failed to send verification email to {user.email}: {str(e)}', exc_info=True)
+        
+        # Show user-friendly error message
+        messages.error(request, 'Failed to send verification email. Please try again later or contact support.')
     
     return redirect('accounts:profile')
 
@@ -200,10 +218,9 @@ def verify_email(request, token):
         user.email_verified = True
         user.email_verification_token = ''  # Clear the token
         user.save()
-        messages.success(request, '✅ Your email has been verified successfully!')
+        messages.success(request, 'Your email has been verified successfully!')
     else:
         messages.error(request, 'Invalid or expired verification link.')
     
     return redirect('accounts:profile')
-
 # Create your views here.

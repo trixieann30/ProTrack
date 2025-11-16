@@ -217,12 +217,65 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
+# Check if we're in production or have email configured
+IS_PRODUCTION = config('IS_PRODUCTION', default=False, cast=bool)
 
-# Email Configuration for Gmail
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='your-email@gmail.com')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='your-app-password')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='your-email@gmail.com')
+if IS_PRODUCTION or config('EMAIL_HOST_USER', default=None):
+    # Production/Configured email using Gmail SMTP
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+    EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+    DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
+    
+    # Email timeout settings
+    EMAIL_TIMEOUT = 30  # 30 seconds timeout
+    
+    # Server email for error reports
+    SERVER_EMAIL = DEFAULT_FROM_EMAIL
+    
+    print(f"📧 Email configured: {EMAIL_HOST_USER}")  # Debug line
+else:
+    # Development: Console backend (prints emails to terminal)
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
+    print("📧 Using console email backend (development)")  # Debug line
+
+# ============================================
+# LOGGING CONFIGURATION (For debugging email issues)
+# ============================================
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'accounts': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
