@@ -256,7 +256,7 @@ def create_training(request):
 @user_passes_test(is_superuser)
 def archive_course(request, course_id):
     """Archive a training course (set status to 'archived')"""
-    course = get_object_or_404(TrainingModule, id=course_id)
+    course = get_object_or_404(TrainingCourse, id=course_id)
     
     if request.method == 'POST':
         course.status = 'archived'
@@ -272,7 +272,7 @@ def archive_course(request, course_id):
 @user_passes_test(is_superuser)
 def archive_training(request):
     """Admin view to list all courses and allow archiving (optional page)."""
-    courses = TrainingCourse.objects.filter(status='active')
+    courses = TrainingCourse.objects.filter(status='archived')
     
     context = {
         'courses': courses,
