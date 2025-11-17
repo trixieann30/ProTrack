@@ -208,10 +208,12 @@ def archive_training(request):
 @user_passes_test(is_superuser)
 def restore_course(request, course_id):
     if request.method == 'POST':
-        course = get_object_or_404(TrainingModule, id=course_id)
-        course.status = 'published'  # or 'draft'
+        # Get the course safely from TrainingCourse
+        course = get_object_or_404(TrainingCourse, id=course_id)
+        course.status = 'active'  # Change status back to active
         course.save()
-    return redirect('dashboard:archive_training')
+        messages.success(request, f'Course "{course.title}" has been restored.')
+    return redirect('dashboard:training_catalog')
 
 @login_required
 @user_passes_test(is_superuser)
