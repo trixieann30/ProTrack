@@ -5,263 +5,240 @@
 
 {% block extra_css %}
 <style>
-  /* Soft badges that match your design tokens */
-  .badge-soft-primary {
-    background: rgba(79, 70, 229, 0.10);
-    color: var(--primary-color);
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-weight: 600;
-  }
-  .badge-soft-success {
-    background: rgba(16,185,129,0.10);
-    color: #10b981;
-    border-radius: 6px;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.80rem;
-    font-weight: 600;
-  }
-  .badge-soft-warning {
-    background: rgba(245,158,11,0.10);
-    color: #f59e0b;
-    border-radius: 6px;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.80rem;
-    font-weight: 600;
-  }
-
-  /* Avatar ring to match cards & header aesthetic */
-  .avatar-ring {
-    object-fit: cover;
-    width: 120px; height: 120px;
-    border-radius: 50%;
-    border: 4px solid #f3f4f6;
-  }
-
-  /* Ensure page inherits base dashboard background exactly */
-  .dashboard-wrapper, .dashboard-content { background: var(--content-bg) !important; }
-
-  /* Custom scrollbar styling */
-  .scrollable-list::-webkit-scrollbar {
-    width: 8px;
-  }
-  .scrollable-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-  }
-  .scrollable-list::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 10px;
-  }
-  .scrollable-list::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-  }
-
-  /* List item hover effect */
-  .list-group-item {
-    transition: background-color 0.2s ease;
-  }
-  .list-group-item:hover {
-    background-color: #f9fafb;
-  }
+    .badge-soft-primary {
+        background: rgba(79, 70, 229, 0.10);
+        color: var(--primary-color);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+    }
+    
+    .avatar-ring {
+        object-fit: cover;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 4px solid #f3f4f6;
+        margin: 0 auto; /* Center the image */
+        display: block; /* Make it a block element */
+    }
+    
+    .avatar-placeholder {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: var(--primary-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+        font-weight: 700;
+        border: 4px solid #f3f4f6;
+        margin: 0 auto; /* Center the placeholder */
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row">
-  <div class="col-lg-4">
-    <!-- Profile Card -->
-    <div class="card">
-      <div class="card-body text-center">
-        {% if user.profile_picture %}
-          <img src="{{ user.profile_picture.url }}" alt="Profile Picture" class="avatar-ring mb-3">
-        {% else %}
-          <div class="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle"
-               style="width:120px;height:120px;background: var(--primary-gradient);">
-            <i class="fas fa-user fa-3x text-white"></i>
-          </div>
-        {% endif %}
-
-        <h4 class="mb-1">{{ user.get_full_name|default:user.username }}</h4>
-        <p class="text-muted mb-2">{{ user.get_user_type_display }}</p>
-
-        <span class="badge-soft-primary d-inline-block">
-          {{ user.department|default:"No Department" }}
-        </span>
-
-        <div class="mt-4">
-          <a href="{% url 'accounts:edit_profile' %}" class="btn btn-primary w-100">
-            <i class="fas fa-edit me-2"></i>Edit Profile
-          </a>
+    <div class="col-lg-4">
+        <!-- Profile Card -->
+        <div class="card">
+            <div class="card-body text-center">
+                <!-- Centered Avatar Container -->
+                <div class="mb-3">
+                    {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture }}" 
+                             alt="Profile Picture" 
+                             class="avatar-ring"
+                             onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name={{ user.get_full_name|default:user.username|urlencode }}&background=667eea&color=fff&size=120';">
+                    {% else %}
+                        <div class="avatar-placeholder">
+                            {{ user.username|slice:":1"|upper }}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <h4 class="mb-1">{{ user.get_full_name|default:user.username }}</h4>
+                <p class="text-muted mb-2">{{ user.get_user_type_display }}</p>
+                <span class="badge-soft-primary d-inline-block">
+                    {{ user.department|default:"No Department" }}
+                </span>
+                
+                <div class="mt-4">
+                    <a href="{% url 'accounts:edit_profile' %}" class="btn btn-primary w-100">
+                        <i class="fas fa-edit me-2"></i>Edit Profile
+                    </a>
+                </div>
+            </div>
         </div>
-      </div>
+        
+        <!-- Account Information Card -->
+        <div class="card mt-3">
+            <div class="chart-header">
+                <h3 style="font-size:1.1rem;">Account Information</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted small">Username</label>
+                    <p class="mb-0 fw-bold">{{ user.username }}</p>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="text-muted small">Email</label>
+                    <p class="mb-0 fw-bold d-flex align-items-center gap-2">
+                        {{ user.email }}
+                        {% if user.email_verified %}
+                            <span class="badge bg-success" style="font-size: 0.75rem;">
+                                <i class="fas fa-check-circle me-1"></i>Verified
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning" style="font-size: 0.75rem;">
+                                <i class="fas fa-exclamation-circle me-1"></i>Not Verified
+                            </span>
+                        {% endif %}
+                    </p>
+                    
+                    {% if not user.email_verified %}
+                        <form method="post" action="{% url 'accounts:send_verification_email' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm mt-2" 
+                                    style="background: rgba(79,70,229,0.10); color: var(--primary-color); border: none; padding: 0.5rem 1rem; border-radius: 8px;">
+                                <i class="fas fa-envelope me-1"></i>Send Verification Email
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <label class="text-muted small">Phone</label>
+                    <p class="mb-0 fw-bold">{{ user.phone_number|default:"Not provided" }}</p>
+                </div>
+                
+                <div class="mb-0">
+                    <label class="text-muted small">Member Since</label>
+                    <p class="mb-0 fw-bold">{{ user.date_joined|date:"M d, Y" }}</p>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- Account Information Card -->
-    <div class="card mt-3">
-      <div class="chart-header">
-        <h3 style="font-size:1.1rem;">Account Information</h3>
-      </div>
-      <div class="card-body">
-        <div class="mb-3">
-          <label class="text-muted small">Username</label>
-          <p class="mb-0 fw-bold">{{ user.username }}</p>
+    
+    <div class="col-lg-8">
+        <!-- Biography Card -->
+        <div class="card mb-3">
+            <div class="chart-header">
+                <h3 style="font-size:1.1rem;">Biography</h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    {{ profile.bio|default:"No biography provided yet. Click 'Edit Profile' to add your bio." }}
+                </p>
+            </div>
         </div>
-
-        <div class="mb-3">
-          <label class="text-muted small">Email</label>
-          <p class="mb-0 fw-bold d-flex align-items-center gap-2">
-            {{ user.email }}
-            {% if user.email_verified %}
-              <span class="badge-soft-success">
-                <i class="fas fa-check-circle me-1"></i>Verified
-              </span>
-            {% else %}
-              <span class="badge-soft-warning">
-                <i class="fas fa-exclamation-circle me-1"></i>Not Verified
-              </span>
-            {% endif %}
-          </p>
-
-          {% if not user.email_verified %}
-          <form method="post" action="{% url 'accounts:send_verification_email' %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-sm mt-2"
-                    style="background: rgba(79,70,229,0.10); color: var(--primary-color); border: none; padding: 0.5rem 1rem; border-radius: 8px;">
-              <i class="fas fa-envelope me-1"></i>Send Verification Email
-            </button>
-          </form>
-          {% endif %}
-        </div>
-
-        <div class="mb-3">
-          <label class="text-muted small">Phone</label>
-          <p class="mb-0 fw-bold">{{ user.phone_number|default:"Not provided" }}</p>
-        </div>
-
-        <div class="mb-0">
-          <label class="text-muted small">Member Since</label>
-          <p class="mb-0 fw-bold">{{ user.date_joined|date:"M d, Y" }}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-lg-8">
-    <!-- Biography Card -->
-    <div class="card mb-3">
-      <div class="chart-header">
-        <h3 style="font-size:1.1rem;">Biography</h3>
-      </div>
-      <div class="card-body">
-        <p class="text-muted mb-0">
-          {{ profile.bio|default:"No biography provided yet. Click 'Edit Profile' to add your bio." }}
-        </p>
-      </div>
-    </div>
-
-    <!-- Skills & Certifications -->
-    <div class="row">
-      <div class="col-md-6">
-        <div class="card" style="height: 500px; display: flex; flex-direction: column;">
-          <div class="chart-header">
-            <h3 style="font-size:1.1rem;"><i class="fas fa-tools me-2"></i>Skills</h3>
-          </div>
-          <div class="card-body p-0" style="flex: 1; overflow: hidden;">
-            {% if skills_list %}
-              <div class="scrollable-list" style="height: 100%; overflow-y: auto;">
-                <ul class="list-group list-group-flush">
-                  {% for skill in skills_list %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center" style="border-left: none; border-right: none;">
-                    <div>
-                      <strong style="color: #333;">{{ skill }}</strong>
-                      <div class="text-muted small">Skill</div>
+        
+        <!-- Skills & Certifications -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card" style="height: 500px; display: flex; flex-direction: column;">
+                    <div class="chart-header">
+                        <h3 style="font-size:1.1rem;"><i class="fas fa-tools me-2"></i>Skills</h3>
                     </div>
-                    <span class="badge" style="background: rgba(6,182,212,0.10); color:#06b6d4; padding:0.5rem 0.875rem; border-radius:8px; font-weight:500;">
-                      <i class="fas fa-check-circle me-1"></i>Active
-                    </span>
-                  </li>
-                  {% endfor %}
-                </ul>
-              </div>
-            {% else %}
-              <div class="text-center py-5">
-                <i class="fas fa-tools fa-3x text-muted mb-3"></i>
-                <p class="text-muted mb-0">No skills listed yet.</p>
-                <a href="{% url 'accounts:edit_profile' %}" class="btn btn-sm btn-primary mt-2">
-                  <i class="fas fa-plus me-1"></i>Add Skills
-                </a>
-              </div>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6">
-        <div class="card" style="height: 500px; display: flex; flex-direction: column;">
-          <div class="chart-header">
-            <h3 style="font-size:1.1rem;"><i class="fas fa-certificate me-2"></i>Certifications</h3>
-          </div>
-          <div class="card-body p-0" style="flex: 1; overflow: hidden;">
-            {% if certifications_list %}
-              <div class="scrollable-list" style="height: 100%; overflow-y: auto;">
-                <ul class="list-group list-group-flush">
-                  {% for cert in certifications_list %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center" style="border-left: none; border-right: none;">
-                    <div>
-                      <strong style="color: #333;">{{ cert }}</strong>
-                      <div class="text-muted small">Certification</div>
+                    <div class="card-body p-0" style="flex: 1; overflow: hidden;">
+                        {% if skills_list %}
+                            <div class="scrollable-list" style="height: 100%; overflow-y: auto;">
+                                <ul class="list-group list-group-flush">
+                                    {% for skill in skills_list %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>{{ skill }}</strong>
+                                                <div class="text-muted small">Skill</div>
+                                            </div>
+                                            <span class="badge bg-info">
+                                                <i class="fas fa-check-circle me-1"></i>Active
+                                            </span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-tools fa-3x text-muted mb-3"></i>
+                                <p class="text-muted mb-0">No skills listed yet.</p>
+                                <a href="{% url 'accounts:edit_profile' %}" class="btn btn-sm btn-primary mt-2">
+                                    <i class="fas fa-plus me-1"></i>Add Skills
+                                </a>
+                            </div>
+                        {% endif %}
                     </div>
-                    <span class="badge" style="background: rgba(16,185,129,0.10); color:#10b981; padding:0.5rem 0.875rem; border-radius:8px; font-weight:500;">
-                      <i class="fas fa-award me-1"></i>Earned
-                    </span>
-                  </li>
-                  {% endfor %}
-                </ul>
-              </div>
-            {% else %}
-              <div class="text-center py-5">
-                <i class="fas fa-certificate fa-3x text-muted mb-3"></i>
-                <p class="text-muted mb-0">No certifications listed yet.</p>
-                <a href="{% url 'accounts:edit_profile' %}" class="btn btn-sm btn-success mt-2">
-                  <i class="fas fa-plus me-1"></i>Add Certifications
-                </a>
-              </div>
-            {% endif %}
-          </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card" style="height: 500px; display: flex; flex-direction: column;">
+                    <div class="chart-header">
+                        <h3 style="font-size:1.1rem;"><i class="fas fa-certificate me-2"></i>Certifications</h3>
+                    </div>
+                    <div class="card-body p-0" style="flex: 1; overflow: hidden;">
+                        {% if certifications_list %}
+                            <div class="scrollable-list" style="height: 100%; overflow-y: auto;">
+                                <ul class="list-group list-group-flush">
+                                    {% for cert in certifications_list %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>{{ cert }}</strong>
+                                                <div class="text-muted small">Certification</div>
+                                            </div>
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-award me-1"></i>Earned
+                                            </span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-certificate fa-3x text-muted mb-3"></i>
+                                <p class="text-muted mb-0">No certifications listed yet.</p>
+                                <a href="{% url 'accounts:edit_profile' %}" class="btn btn-sm btn-success mt-2">
+                                    <i class="fas fa-plus me-1"></i>Add Certifications
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Activity Timeline -->
-    <div class="card mt-3">
-      <div class="chart-header">
-        <h3 style="font-size:1.1rem;">Recent Activity</h3>
-      </div>
-      <div class="card-body">
-        <div class="timeline">
-          <div class="timeline-item">
-            <div class="timeline-icon bg-primary">
-              <i class="fas fa-user-plus"></i>
+        
+        <!-- Activity Timeline -->
+        <div class="card mt-3">
+            <div class="chart-header">
+                <h3 style="font-size:1.1rem;">Recent Activity</h3>
             </div>
-            <div class="timeline-content">
-              <h6>Account Created</h6>
-              <p class="text-muted mb-0">{{ user.date_joined|date:"M d, Y g:i A" }}</p>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-icon bg-primary">
+                            <i class="fas fa-user-plus"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h6>Account Created</h6>
+                            <p class="text-muted mb-0">{{ user.date_joined|date:"M d, Y g:i A" }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="timeline-icon" style="background:#06b6d4;">
+                            <i class="fas fa-sign-in-alt"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h6>Last Login</h6>
+                            <p class="text-muted mb-0">{{ user.last_login|date:"M d, Y g:i A"|default:"Never" }}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="timeline-item">
-            <div class="timeline-icon" style="background:#06b6d4;">
-              <i class="fas fa-sign-in-alt"></i>
-            </div>
-            <div class="timeline-content">
-              <h6>Last Login</h6>
-              <p class="text-muted mb-0">{{ user.last_login|date:"M d, Y g:i A"|default:"Never" }}</p>
-            </div>
-          </div>
         </div>
-      </div>
     </div>
-
-  </div>
 </div>
 {% endblock %}
