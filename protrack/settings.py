@@ -114,7 +114,7 @@ if config('DB_HOST', default=None):
             'USER': config('DB_USER', default='postgres'),
             'PASSWORD': config('DB_PASSWORD'),
             'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT', default='6543'),
+            'PORT': config('DB_PORT', default='5432'),
             'OPTIONS': {
                 'sslmode': 'require',
             },
