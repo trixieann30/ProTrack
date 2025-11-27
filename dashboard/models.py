@@ -136,6 +136,7 @@ class Enrollment(models.Model):
     feedback = models.TextField(blank=True)
     assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_enrollments')
     notes = models.TextField(blank=True, help_text='Internal notes about this enrollment')
+    completed_materials = models.ManyToManyField('TrainingMaterial', blank=True, related_name='completed_by_enrollments')
     
     class Meta:
         unique_together = ('user', 'course')
@@ -176,7 +177,7 @@ class TrainingMaterial(models.Model):
     material_type = models.CharField(max_length=20, choices=MATERIAL_TYPE_CHOICES, default='document')
     file_url = models.URLField(max_length=500, help_text='URL to file in Supabase storage')
     file_name = models.CharField(max_length=255)
-    file_size = models.BigIntegerField(help_text='File size in bytes')
+    file_size = models.BigIntegerField(help_text='File size in bytes', null=True, default=0)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='uploaded_materials')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_required = models.BooleanField(default=False, help_text='Is this material required for course completion?')
@@ -213,14 +214,71 @@ class Certificate(models.Model):
     
     def __str__(self):
         return f"Certificate {self.certificate_number} - {self.enrollment.user.username}"
-    
-    def generate_certificate_number(self):
-        """Generate unique certificate number"""
-        from django.utils import timezone
-        import random
-        year = timezone.now().year
-        random_num = random.randint(1000, 9999)
-        return f"CERT-{year}-{random_num}"
+
+class Quiz(models.Model):
+    material = models.OneToOneField(TrainingMaterial, on_delete=models.CASCADE, related_name='quiz')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    pass_mark = models.PositiveIntegerField(default=50, validators=[MaxValueValidator(100)])
+
+    def __str__(self):
+        return self.title
+
+class Question(models.Model):
+    QUESTION_TYPES = (
+        ('multiple_choice', 'Multiple Choice'),
+        ('true_false', 'True/False'),
+        ('fill_in_the_blanks', 'Fill in the Blanks'),
+        ('identification', 'Identification'),
+    )
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')
+    text = models.TextField()
+    question_type = models.CharField(max_length=20, choices=QUESTION_TYPES, default='multiple_choice')
+    correct_answer = models.CharField(max_length=255, blank=True, null=True)  # For Identification, Fill in the Blanks
+    order = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.text
+
+class Choice(models.Model):
+    # ... (rest of the code remains the same)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='choices')
+    text = models.CharField(max_length=500)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.text
+
+class QuizAttempt(models.Model):
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name='quiz_attempts')
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='attempts')
+    score = models.PositiveIntegerField()
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.enrollment.user.username}'s attempt on {self.quiz.title}"
+
+class Answer(models.Model):
+    attempt = models.ForeignKey(QuizAttempt, on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    choice = models.ForeignKey(Choice, on_delete=models.CASCADE, null=True, blank=True)
+    text_answer = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Answer to {self.question.text}"
+
+
+class TaskDeadline(models.Model):
+    """User-defined deadlines for training materials."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='task_deadlines')
+    material = models.ForeignKey(TrainingMaterial, on_delete=models.CASCADE, related_name='deadlines')
+    due_date = models.DateField()
+
+    class Meta:
+        unique_together = ('user', 'material')
+
+    def __str__(self):
+        return f"{self.user.username}'s deadline for {self.material.title}"
 # Add this to your existing dashboard/models.py file
 
 class Notification(models.Model):

@@ -1,18 +1,36 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth.forms import PasswordChangeForm
-from django.db.models import Count, Q
-from django.core.exceptions import PermissionDenied
+import json
+from collections import defaultdict
+from datetime import datetime, timedelta
+
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.forms import PasswordChangeForm
+from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db.models import Avg, Count, F, Q, Sum
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
-from accounts.models import CustomUser
-from .models import TrainingCourse, TrainingCategory, TrainingSession, Enrollment, Certificate, TrainingMaterial
-from training.models import TrainingModule
-from .models import Notification  
 from django.views.decorators.http import require_POST
+
+from accounts.models import CustomUser
+from training.models import TrainingModule
+
+from .models import (
+    Certificate,
+    Enrollment,
+    Notification,
+    TaskDeadline,
+    TrainingCategory,
+    TrainingCourse,
+    TrainingMaterial,
+    Quiz,
+    Question,
+    Choice,
+    TrainingSession,
+)
 
 
 def is_superuser(user):
@@ -43,8 +61,6 @@ def admin_dashboard(request):
 @login_required
 def user_dashboard(request):
     """User dashboard - for regular users (students and employees)"""
-    from django.db.models import Avg, Sum
-    
     user = request.user
     
     # Redirect superusers to admin dashboard
@@ -86,7 +102,6 @@ def user_dashboard(request):
     ).select_related('enrollment__course').order_by('-issue_date')[:3]
     
     # Upcoming sessions (for enrolled courses)
-    from django.utils import timezone
     upcoming_sessions = TrainingSession.objects.filter(
         enrollments__user=user,
         start_date__gte=timezone.now().date()
@@ -345,6 +360,11 @@ def training_catalog(request):
             Q(description__icontains=search_query) |
             Q(instructor__icontains=search_query)
         )
+
+    # Get user's enrollments to show status on catalog page
+    user_enrollments = []
+    if request.user.is_authenticated:
+        user_enrollments = Enrollment.objects.filter(user=request.user).values_list('course_id', flat=True)
     
     context = {
         'courses': courses,
@@ -352,6 +372,7 @@ def training_catalog(request):
         'selected_category': category_id,
         'selected_level': level,
         'search_query': search_query,
+        'user_enrollments': user_enrollments,
     }
     return render(request, 'dashboard/training_catalog.html', context)
 
@@ -392,22 +413,33 @@ def course_detail(request, course_id):
     recent_enrollments = None
     if request.user.is_superuser:
         recent_enrollments = course.enrollments.select_related('user').order_by('-enrolled_date')[:10]
+
+    # Get training materials for the course
+    materials = course.materials.all().select_related('quiz').order_by('order')
+    completed_materials_ids = []
+    if enrollment:
+        completed_materials_ids = list(enrollment.completed_materials.values_list('id', flat=True))
     
     context = {
         'course': course,
         'is_enrolled': is_enrolled,
         'enrollment': enrollment,
-        'enrollment_percentage': enrollment_percentage,  # ADD THIS LINE
+        'enrollment_percentage': enrollment_percentage,  
         'upcoming_sessions': upcoming_sessions,
         'recent_enrollments': recent_enrollments,
+        'materials': materials,
+        'completed_materials_ids': completed_materials_ids,
     }
-    
     return render(request, 'dashboard/course_detail.html', context)
 
 @login_required
 def enroll_course(request, course_id):
     """Enroll user in a training course"""
     if request.method == 'POST':
+        if request.user.is_superuser:
+            messages.error(request, 'Administrators cannot enroll in courses.')
+            return redirect('dashboard:course_detail', course_id=course_id)
+
         course = get_object_or_404(TrainingCourse, id=course_id)
         session_id = request.POST.get('session_id')
         
@@ -451,7 +483,6 @@ def enroll_course(request, course_id):
 @login_required
 def my_training(request):
     """Display user's enrolled training courses"""
-    from django.db.models import Avg, Sum
     
     # Get all enrollments
     all_enrollments = Enrollment.objects.filter(
@@ -512,68 +543,191 @@ def cancel_enrollment(request, enrollment_id):
         else:
             enrollment.cancel()
             messages.success(request, 'Enrollment cancelled successfully.')
-        
         return redirect('dashboard:my_training')
-    
     return redirect('dashboard:my_training')
 
+@login_required
+def take_quiz(request, quiz_id):
+    quiz = get_object_or_404(Quiz, id=quiz_id)
+    questions = quiz.questions.all().prefetch_related('choices')
 
-# ============ ADMIN TRAINING MANAGEMENT ============
+    if request.method == 'POST':
+        score = 0
+        total_questions = questions.count()
+
+        for question in questions:
+            user_answer = request.POST.get(f'question_{question.id}')
+            if user_answer:
+                if question.question_type == 'multiple_choice':
+                    selected_choice = get_object_or_404(Choice, id=user_answer)
+                    if selected_choice.is_correct:
+                        score += 1
+                else:
+                    if user_answer.strip().lower() == question.correct_answer.strip().lower():
+                        score += 1
+
+        percentage_score = (score / total_questions) * 100 if total_questions > 0 else 0
+
+        # Save the quiz attempt
+        QuizAttempt.objects.create(
+            user=request.user,
+            quiz=quiz,
+            score=percentage_score
+        )
+
+        messages.success(request, f'You have completed the quiz. Your score is {percentage_score:.2f}%.')
+        return redirect('dashboard:course_detail', course_id=quiz.material.course.id)  # Corrected syntax error here
+
+    context = {
+        'quiz': quiz,
+        'questions': questions,
+    }
+    return render(request, 'dashboard/take_quiz.html', context)
 
 @login_required
 @user_passes_test(is_superuser)
-def assign_training(request):
-    """Admin view to assign training to users"""
+def manage_quiz(request, material_id):
+    """Admin view to manage a quiz's questions and choices."""
+    material = get_object_or_404(TrainingMaterial, id=material_id, material_type='quiz')
+    quiz, created = Quiz.objects.get_or_create(
+        material=material,
+        defaults={'title': material.title, 'description': material.description}
+    )
+
     if request.method == 'POST':
-        user_ids = request.POST.getlist('user_ids')  # Support multiple users
-        course_id = request.POST.get('course_id')
-        session_id = request.POST.get('session_id')
-        
-        try:
-            course = TrainingCourse.objects.get(id=course_id)
-            session = TrainingSession.objects.get(id=session_id) if session_id else None
+        action = request.POST.get('action')
+
+        if action == 'update_pass_mark':
+            pass_mark = request.POST.get('pass_mark')
+            if pass_mark is not None:
+                quiz.pass_mark = int(pass_mark)
+                quiz.save()
+                messages.success(request, 'Pass mark updated successfully.')
+
+        elif action == 'edit_question':
+            question_id = request.POST.get('question_id')
+            question = get_object_or_404(Question, id=question_id)
+            question.text = request.POST.get('text')
+            if question.question_type != 'multiple_choice':
+                question.correct_answer = request.POST.get('correct_answer')
+            question.save()
+            messages.success(request, 'Question updated successfully.')
+
+        elif action == 'add_choice':
+            question_id = request.POST.get('question_id')
+            question = get_object_or_404(Question, id=question_id)
+            text = request.POST.get('text')
+            is_correct = request.POST.get('is_correct') == 'true'
+            Choice.objects.create(question=question, text=text, is_correct=is_correct)
+            messages.success(request, 'Choice added successfully.')
+
+        else:  # Default action is to add a new question
+            text = request.POST.get('text')
+            question_type = request.POST.get('question_type')
+            Question.objects.create(quiz=quiz, text=text, question_type=question_type)
+            messages.success(request, 'Question added successfully.')
             
-            created_count = 0
-            for user_id in user_ids:
-                try:
-                    user = CustomUser.objects.get(id=user_id)
-                    
-                    # Check if already enrolled
-                    existing = Enrollment.objects.filter(user=user, course=course).first()
-                    if existing:
-                        messages.warning(request, f'{user.username} is already enrolled in {course.title}.')
-                        continue
-                    
-                    # Create enrollment
-                    enrollment = Enrollment.objects.create(
-                        user=user,
-                        course=course,
-                        session=session,
-                        status='enrolled',
-                        assigned_by=request.user
-                    )
-                    
-                    # CREATE NOTIFICATION - THIS IS NEW
-                    Notification.create_enrollment_notification(enrollment, assigned_by=request.user)
-                    
-                    created_count += 1
-                except CustomUser.DoesNotExist:
-                    continue
-            
-            if created_count > 0:
-                messages.success(request, f'Successfully assigned {course.title} to {created_count} user(s).')
-            
-        except Exception as e:
-            messages.error(request, f'Error assigning training: {str(e)}')
-        
-        return redirect('dashboard:admin_dashboard')
-    
-    # GET request - show assignment form
-    users = CustomUser.objects.filter(is_active=True)
-    courses = TrainingCourse.objects.filter(status='active')
-    
+        return redirect('dashboard:manage_quiz', material_id=material.id)
+
+    questions = quiz.questions.all().prefetch_related('choices')
+
     context = {
-        'users': users,
+        'material': material,
+        'questions': questions,
+    }
+    return render(request, 'dashboard/manage_quiz.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def edit_course(request, course_id):
+    """Admin view to edit an existing training course."""
+    course = get_object_or_404(TrainingCourse, id=course_id)
+
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        instructor = request.POST.get('instructor')
+        duration_hours = request.POST.get('duration_hours')
+        level = request.POST.get('level')
+        category_id = request.POST.get('category')
+        status = request.POST.get('status', 'active')
+
+        category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
+
+        course.title = title
+        course.description = description
+        course.instructor = instructor
+        course.duration_hours = duration_hours
+        course.level = level
+        course.category = category
+        course.status = status
+        course.save()
+
+        messages.success(request, f'Course "{title}" updated successfully.')
+        return redirect('dashboard:course_detail', course_id=course.id)
+
+    categories = TrainingCategory.objects.all()
+    level_choices = TrainingCourse.LEVEL_CHOICES
+    context = {
+        'course': course,
+        'categories': categories,
+        'level_choices': level_choices,
+    }
+    return render(request, 'dashboard/edit_course.html', context)
+
+@user_passes_test(is_superuser)
+def assign_training(request):
+    """Admin view to add a new task (TrainingMaterial) to a course."""
+    if request.method == 'POST':
+        course_id = request.POST.get('course_id')
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        material_type = request.POST.get('material_type')
+        order = request.POST.get('order', 0)
+
+        try:
+            course = get_object_or_404(TrainingCourse, id=course_id)
+
+            # Create the new training material
+            new_material = TrainingMaterial.objects.create(
+                course=course,
+                title=title,
+                description=description,
+                material_type=material_type,
+                order=order
+            )
+
+            # Notify enrolled users and update their progress
+            enrollments = Enrollment.objects.filter(course=course, status__in=['enrolled', 'in_progress'])
+            for enrollment in enrollments:
+                # Create a notification for the user
+                Notification.objects.create(
+                    user=enrollment.user,
+                    notification_type='new_material',
+                    title=f'New Task Added to {course.title}',
+                    message=f'A new task, "{title}", has been added to the course you are enrolled in.',
+                    link=reverse('dashboard:course_detail', args=[course.id])
+                )
+
+                # Recalculate progress percentage
+                total_materials = course.materials.count()
+                if total_materials > 0:
+                    completed_count = enrollment.completed_materials.count()
+                    progress = round((completed_count / total_materials) * 100)
+                    enrollment.progress_percentage = progress
+                    enrollment.save()
+
+            messages.success(request, f'Successfully added task "{title}" to {course.title} and notified {enrollments.count()} users.')
+            return redirect('dashboard:course_detail', course_id=course.id)
+
+        except Exception as e:
+            messages.error(request, f'Error adding task: {str(e)}')
+            return redirect('dashboard:assign_training')
+
+    # GET request - show the form
+    courses = TrainingCourse.objects.filter(status='active')
+    context = {
         'courses': courses,
     }
     return render(request, 'dashboard/assign_training.html', context)
@@ -595,7 +749,7 @@ def create_training(request):
         category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
 
         # Create the course
-        TrainingCourse.objects.create(
+        TrainingModule.objects.create(
             title=title,
             description=description,
             instructor=instructor,
@@ -805,6 +959,69 @@ def admin_user_delete(request, user_id):
 
 
 @login_required
+@require_POST
+def mark_material_complete(request, enrollment_id, material_id):
+    """Mark a training material as complete for an enrollment."""
+    enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
+    material = get_object_or_404(TrainingMaterial, id=material_id, course=enrollment.course)
+
+    # Add material to completed set
+    enrollment.completed_materials.add(material)
+
+    # Recalculate progress
+    total_materials = enrollment.course.materials.count()
+    if total_materials > 0:
+        completed_count = enrollment.completed_materials.count()
+        progress = round((completed_count / total_materials) * 100)
+        enrollment.progress_percentage = progress
+    
+    # Check for course completion
+    if enrollment.progress_percentage == 100 and enrollment.status != 'completed':
+        enrollment.mark_completed()
+        
+        # Generate certificate
+        certificate, created = Certificate.objects.get_or_create(
+            enrollment=enrollment,
+            defaults={
+                'certificate_number': f'CERT-{enrollment.id}-{timezone.now().year}',
+                'issue_date': timezone.now().date(),
+                'status': 'draft',  # Set initial status to draft for admin approval
+                'issued_by': request.user
+            }
+        )
+        
+        if created:
+            messages.success(request, f"Congratulations! You have completed {enrollment.course.title} and earned a certificate.")
+        else:
+            messages.info(request, f"You have completed {enrollment.course.title}. Your certificate is available.")
+    else:
+        messages.success(request, f'Successfully marked "{material.title}" as complete.')
+    
+    enrollment.save()
+    
+    return redirect('dashboard:course_detail', course_id=enrollment.course.id)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def approve_certificate(request, certificate_id):
+    """Admin view to approve a certificate and set an expiry date."""
+    if request.method == 'POST':
+        certificate = get_object_or_404(Certificate, id=certificate_id)
+        expiry_date = request.POST.get('expiry_date')
+        
+        certificate.status = 'issued'
+        if expiry_date:
+            certificate.expiry_date = expiry_date
+        
+        certificate.save()
+        messages.success(request, 'Certificate approved successfully.')
+        return redirect('dashboard:certifications')
+    
+    return redirect('dashboard:certifications')
+
+
+@login_required
 @user_passes_test(is_superuser)
 def admin_user_toggle_status(request, user_id):
     """Toggle user active status"""
@@ -832,8 +1049,6 @@ def admin_user_toggle_status(request, user_id):
 @user_passes_test(is_superuser)
 def reports(request):
     """Admin reports and analytics dashboard (US-03)"""
-    from django.db.models import Avg, Count, Q, F
-    from datetime import datetime, timedelta
     
     # Overall Statistics
     total_courses = TrainingCourse.objects.count()
@@ -889,8 +1104,6 @@ def reports(request):
     ).filter(total_enrollments__gt=0).order_by('-completed_courses')[:10]
     
     # Monthly Enrollment Trend (last 6 months)
-    from django.utils import timezone
-    from collections import defaultdict
     six_months_ago = timezone.now() - timedelta(days=180)
     
     # Get enrollments and group by month in Python (SQLite compatible)
@@ -1029,9 +1242,6 @@ def delete_notification(request, notification_id):
 
 def get_time_ago(datetime_obj):
     """Helper function to get human-readable time ago"""
-    from django.utils import timezone
-    from datetime import timedelta
-    
     now = timezone.now()
     diff = now - datetime_obj
     
@@ -1051,11 +1261,93 @@ def get_time_ago(datetime_obj):
     
     return datetime_obj 
 
-    
+    return datetime_obj
+
 def create_course_completion_notification(enrollment):
     """Call this when a course is marked as completed"""
     Notification.create_completion_notification(enrollment)
-    
+
 def create_certificate_issued_notification(certificate):
     """Call this when a certificate is issued"""
     Notification.create_certificate_notification(certificate)
+
+# ============ CALENDAR VIEWS (US-01A) ============
+
+from datetime import datetime
+from django.urls import reverse
+from django.http import JsonResponse
+
+
+@login_required
+def calendar(request):
+    """Render the calendar page."""
+    return render(request, 'dashboard/calendar.html')
+
+@login_required
+def get_calendar_events(request):
+    """API endpoint to fetch calendar events for FullCalendar."""
+    events = []
+    if request.user.is_superuser:
+        # Superusers see all training sessions
+        sessions = TrainingSession.objects.all().select_related('course')
+        for session in sessions:
+            events.append({
+                'title': f"{session.course.title} - {session.session_name}",
+                'start': f"{session.start_date}T{session.start_time}",
+                'end': f"{session.end_date}T{session.end_time}",
+                'url': reverse('dashboard:course_detail', args=[session.course.id]),
+                'color': '#3b82f6', # Blue for sessions
+                'extendedProps': {
+                    'location': session.location,
+                    'is_online': session.is_online
+                }
+            })
+    else:
+        # Regular users see their course start and finish dates
+        enrollments = Enrollment.objects.filter(user=request.user).select_related('course')
+        for enrollment in enrollments:
+            # Default completion date to one day after start if not set
+            end_date = enrollment.completion_date
+            if not end_date:
+                end_date = enrollment.enrolled_date + timedelta(days=1)
+
+            events.append({
+                'id': enrollment.id,
+                'title': enrollment.course.title,
+                'start': enrollment.enrolled_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d'),
+                'allDay': True,
+                'color': '#3b82f6' if enrollment.completion_date else '#60a5fa', # Darker blue for set, lighter for unset
+                'url': reverse('dashboard:course_detail', args=[enrollment.course.id]),
+                # Make the event editable, but only from the end
+                'editable': True,
+                'eventStartEditable': False,
+                'eventDurationEditable': True, 
+            })
+
+    return JsonResponse(events, safe=False)
+
+@login_required
+@require_POST
+def update_enrollment_completion(request):
+    """API endpoint to update the completion date of an enrollment."""
+    try:
+        data = json.loads(request.body)
+        enrollment_id = data.get('id')
+        completion_date_str = data.get('completion_date')
+
+        if not all([enrollment_id, completion_date_str]):
+            return JsonResponse({'success': False, 'error': 'Missing data'}, status=400)
+
+        enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
+        enrollment.completion_date = datetime.strptime(completion_date_str, '%Y-%m-%d').date()
+        enrollment.save()
+
+        return JsonResponse({'success': True})
+
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid data format'}, status=400)
+    except Enrollment.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Enrollment not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
