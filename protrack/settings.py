@@ -237,7 +237,6 @@ else:
     # Development: Console backend
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
-    print("📧 Development mode - using console backend")
 
     EMAIL_TIMEOUT = 30
 # ============================================
