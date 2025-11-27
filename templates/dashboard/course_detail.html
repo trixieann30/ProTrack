@@ -131,22 +131,30 @@
                 </div>
             </div>
             <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
-                {% if is_enrolled %}
-                <div class="alert alert-success mb-0" style="background: rgba(16, 185, 129, 0.2); border: none; color: white;">
-                    <i class="fas fa-check-circle me-2"></i>You are enrolled in this course
+                <div class="d-flex justify-content-end align-items-center">
+                    {% if user.is_superuser %}
+                        <a href="{% url 'dashboard:edit_course' course.id %}" class="btn btn-outline-light me-3">
+                            <i class="fas fa-pencil-alt me-2"></i>Edit Course
+                        </a>
+                    {% endif %}
+
+                    {% if is_enrolled %}
+                        <div class="alert alert-success mb-0 py-2 px-3" style="background: rgba(16, 185, 129, 0.2); border: none; color: white;">
+                            <i class="fas fa-check-circle me-2"></i>Enrolled
+                        </div>
+                    {% elif course.is_full %}
+                        <div class="alert alert-warning mb-0 py-2 px-3" style="background: rgba(245, 158, 11, 0.2); border: none; color: white;">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Full
+                        </div>
+                    {% elif not user.is_superuser %}
+                        <form method="post" action="{% url 'dashboard:enroll_course' course.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-lg" style="background: white; color: var(--primary-color); font-weight: 700;">
+                                <i class="fas fa-user-plus me-2"></i>Enroll Now
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
-                {% elif course.is_full %}
-                <div class="alert alert-warning mb-0" style="background: rgba(245, 158, 11, 0.2); border: none; color: white;">
-                    <i class="fas fa-exclamation-triangle me-2"></i>Course is currently full
-                </div>
-                {% else %}
-                <form method="post" action="{% url 'dashboard:enroll_course' course.id %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-lg" style="background: white; color: var(--primary-color); font-weight: 700;">
-                        <i class="fas fa-user-plus me-2"></i>Enroll Now
-                    </button>
-                </form>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -160,6 +168,47 @@
             <h2 class="section-title">About This Course</h2>
             <p style="line-height: 1.8; color: #6b7280;">{{ course.description }}</p>
         </div>
+
+        <!-- Training Materials -->
+        {% if materials %}
+        <div class="section-card">
+            <h2 class="section-title">Training Materials</h2>
+            <ul class="list-group list-group-flush">
+                {% for material in materials %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-file-alt me-2"></i>
+                        <a href="{{ material.file_url }}" target="_blank">{{ material.title }}</a>
+                    </div>
+                    {% if user.is_superuser and material.material_type == 'quiz' %}
+                        <a href="{% url 'dashboard:manage_quiz' material.id %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-cogs me-1"></i> Manage Quiz
+                        </a>
+                    {% elif is_enrolled %}
+                        {% if material.material_type == 'quiz' and material.quiz %}
+                            <a href="{% url 'dashboard:take_quiz' material.quiz.id %}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-pencil-alt me-1"></i> Take Quiz
+                            </a>
+                        {% else %}
+                            <form method="post" action="{% url 'dashboard:mark_material_complete' enrollment.id material.id %}" class="d-inline">
+                                {% csrf_token %}
+                                {% if material.id in completed_materials_ids %}
+                                    <button type="button" class="btn btn-sm btn-success" disabled>
+                                        <i class="fas fa-check-circle me-1"></i> Completed
+                                    </button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        Mark as Complete
+                                    </button>
+                                {% endif %}
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
 
         <!-- Learning Outcomes -->
         <div class="section-card">

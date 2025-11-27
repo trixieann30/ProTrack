@@ -76,11 +76,20 @@
                     <span>Training Catalog</span>
                 </a>
             </li>
+            {% if not user.is_superuser %}
             <li class="sidebar-menu-item">
                 <a href="{% url 'dashboard:my_training' %}"
                     class="sidebar-menu-link {% if 'my_training' in request.resolver_match.url_name %}active{% endif %}">
                     <i class="fas fa-book-reader"></i>
                     <span>My Training</span>
+                </a>
+            </li>
+            {% endif %}
+            <li class="sidebar-menu-item">
+                <a href="{% url 'dashboard:calendar' %}"
+                    class="sidebar-menu-link {% if 'calendar' in request.resolver_match.url_name %}active{% endif %}">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Calendar</span>
                 </a>
             </li>
             {% if user.is_superuser %}
@@ -358,6 +367,7 @@
     margin-bottom: 0.25rem;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
@@ -670,5 +680,24 @@ document.addEventListener('DOMContentLoaded', function() {
     <script src="{% static 'js/main.js' %}"></script>
     
     {% block extra_js %}{% endblock %}
+
+    <script>
+        // Fix for Bootstrap modal flickering issue
+        document.addEventListener('DOMContentLoaded', function () {
+            const modals = document.querySelectorAll('.modal');
+            const body = document.body;
+
+            modals.forEach(modal => {
+                modal.addEventListener('show.bs.modal', function () {
+                    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+                    body.style.paddingRight = scrollbarWidth + 'px';
+                });
+
+                modal.addEventListener('hidden.bs.modal', function () {
+                    body.style.paddingRight = '';
+                });
+            });
+        });
+    </script>
 </body>
 </html>

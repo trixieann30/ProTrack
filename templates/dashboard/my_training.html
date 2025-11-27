@@ -342,9 +342,15 @@
                     <a href="{% url 'dashboard:course_detail' enrollment.course.id %}" class="btn btn-sm btn-primary">
                         <i class="fas fa-eye me-1"></i>View Details
                     </a>
-                    <button class="btn btn-sm btn-outline-secondary">
-                        <i class="fas fa-certificate me-1"></i>Download Certificate
-                    </button>
+                    {% if enrollment.certificate and enrollment.certificate.certificate_url %}
+                        <a href="{{ enrollment.certificate.certificate_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-certificate me-1"></i>Download Certificate
+                        </a>
+                    {% elif enrollment.status == 'completed' %}
+                        <button class="btn btn-sm btn-outline-secondary" disabled>
+                            <i class="fas fa-hourglass-half me-1"></i>Certificate Pending
+                        </button>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
