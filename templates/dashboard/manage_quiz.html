@@ -1,0 +1,152 @@
+{% extends 'dashboard/base_dashboard.html' %}
+
+{% block title %}Manage Quiz: {{ quiz.title }} - ProTrack{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Manage Quiz: {{ quiz.title }}</h2>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quiz Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_pass_mark">
+                        <div class="row align-items-end">
+                            <div class="col-md-6">
+                                <label for="pass_mark" class="form-label">Passing Percentage</label>
+                                <input type="number" id="pass_mark" name="pass_mark" class="form-control" value="{{ quiz.pass_mark }}" min="0" max="100" required>
+                            </div>
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-primary">Update Pass Mark</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Questions for {{ quiz.title }}</h5>
+                </div>
+                <div class="card-body">
+                    {% for question in questions %}
+                        <div class="mb-4 border-bottom pb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ forloop.counter }}. {{ question.text }}</strong> ({{ question.get_question_type_display }})
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#editQuestionModal-{{ question.id }}">Edit</button>
+                                </div>
+                            </div>
+
+                            {% if question.question_type == 'multiple_choice' %}
+                                <ul class="list-unstyled mt-2">
+                                    {% for choice in question.choices.all %}
+                                        <li class="{% if choice.is_correct %}text-success fw-bold{% endif %}">
+                                            {{ choice.text }}
+                                            {% if choice.is_correct %}<i class="fas fa-check ms-2"></i>{% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                                <form method="post" class="row g-2 align-items-center mt-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="add_choice">
+                                    <input type="hidden" name="question_id" value="{{ question.id }}">
+                                    <div class="col-auto">
+                                        <input type="text" name="text" class="form-control form-control-sm" placeholder="Add a choice" required>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="is_correct" value="true">
+                                            <label class="form-check-label">Correct</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="submit" class="btn btn-sm btn-secondary">Add Choice</button>
+                                    </div>
+                                </form>
+                            {% else %}
+                                <p class="mt-2"><strong>Correct Answer:</strong> <span class="text-success fw-bold">{{ question.correct_answer|default:"Not set" }}</span></p>
+                            {% endif %}
+                        </div>
+
+                        <!-- Edit Question Modal -->
+                        <div class="modal" id="editQuestionModal-{{ question.id }}" tabindex="-1" aria-labelledby="editQuestionModalLabel-{{ question.id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="editQuestionModalLabel-{{ question.id }}">Edit Question</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <div class="modal-body">
+                                            <input type="hidden" name="action" value="edit_question">
+                                            <input type="hidden" name="question_id" value="{{ question.id }}">
+                                            <div class="mb-3">
+                                                <label for="text-{{ question.id }}" class="form-label">Question Text</label>
+                                                <textarea id="text-{{ question.id }}" name="text" class="form-control" rows="3" required>{{ question.text }}</textarea>
+                                            </div>
+                                            {% if question.question_type != 'multiple_choice' %}
+                                                <div class="mb-3">
+                                                    <label for="correct_answer-{{ question.id }}" class="form-label">Correct Answer</label>
+                                                    {% if question.question_type == 'true_false' %}
+                                                        <select id="correct_answer-{{ question.id }}" name="correct_answer" class="form-select" required>
+                                                            <option value="True" {% if question.correct_answer == 'True' %}selected{% endif %}>True</option>
+                                                            <option value="False" {% if question.correct_answer == 'False' %}selected{% endif %}>False</option>
+                                                        </select>
+                                                    {% else %}
+                                                        <input type="text" id="correct_answer-{{ question.id }}" name="correct_answer" class="form-control" value="{{ question.correct_answer|default:'' }}" required>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p>No questions have been added to this quiz yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Add New Question</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="text" class="form-label">Question Text</label>
+                            <textarea class="form-control" id="text" name="text" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="question_type" class="form-label">Question Type</label>
+                            <select class="form-select" id="question_type" name="question_type">
+                                <option value="multiple_choice">Multiple Choice</option>
+                                <option value="true_false">True/False</option>
+                                <option value="fill_in_the_blanks">Fill in the Blanks</option>
+                                <option value="identification">Identification</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Question</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

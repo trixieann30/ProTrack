@@ -1,0 +1,83 @@
+{% extends 'dashboard/base_dashboard.html' %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Training Calendar</h1>
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div id="calendar"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            events: '/dashboard/api/calendar-events/',
+            editable: true,
+            eventResize: function(info) {
+                const enrollmentId = info.event.id;
+                const newCompletionDate = info.event.end.toISOString().split('T')[0];
+
+                fetch('/dashboard/api/enrollment/update-completion/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({
+                        id: enrollmentId,
+                        completion_date: newCompletionDate,
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Finish date updated successfully');
+                        info.event.setProp('color', '#3b82f6'); // Set color to darker blue
+                    } else {
+                        info.revert();
+                        alert('Could not update finish date: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    info.revert();
+                    alert('An error occurred while updating the finish date.');
+                    console.error('Error:', error);
+                });
+            },
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %}

@@ -14,8 +14,11 @@ urlpatterns = [
     path('training/catalog/', views.training_catalog, name='training_catalog'),
     path('training/course/<int:course_id>/', views.course_detail, name='course_detail'),
     path('training/enroll/<int:course_id>/', views.enroll_course, name='enroll_course'),
+    path('certifications/approve/<int:certificate_id>/', views.approve_certificate, name='approve_certificate'),
     path('training/my-training/', views.my_training, name='my_training'),
     path('training/cancel/<int:enrollment_id>/', views.cancel_enrollment, name='cancel_enrollment'),
+    path('training/enrollment/<int:enrollment_id>/material/<int:material_id>/complete/', views.mark_material_complete, name='mark_material_complete'),
+    path('training/quiz/<int:quiz_id>/take/', views.take_quiz, name='take_quiz'),
     
     # Admin: Assign training
     path('training/assign/', views.assign_training, name='assign_training'),
@@ -24,6 +27,11 @@ urlpatterns = [
     
     # Reports (US-03)
     path('reports/', views.reports, name='reports'),
+
+    # Calendar (US-01A)
+    path('calendar/', views.calendar, name='calendar'),
+    path('api/calendar-events/', views.get_calendar_events, name='calendar_events'),
+    path('api/enrollment/update-completion/', views.update_enrollment_completion, name='update_enrollment_completion'),
     
     # Settings URLs
     path('settings/', views.settings, name='settings'),
@@ -41,10 +49,14 @@ urlpatterns = [
     # Admin: Assign & Create training
     path('training/assign/', views.assign_training, name='assign_training'),
     path('training/create/', views.create_training, name='create_training'),
+    path('training/course/<int:course_id>/edit/', views.edit_course, name='edit_course'),
     path('training/course/<int:course_id>/archive/', views.archive_course, name='archive_course'),
     path('training/archive/', views.archive_training, name='archive_training'),
     path('dashboard/training/archived/', views.archived_courses, name='archived_courses'),
     path('training/restore/<int:course_id>/', views.restore_course, name='restore_course'),
+
+    # Admin: Quiz Management
+    path('admin/quizzes/material/<int:material_id>/manage/', views.manage_quiz, name='manage_quiz'),
 
     # Notification URLs
     path('notifications/', views.notifications_list, name='notifications_list'),
