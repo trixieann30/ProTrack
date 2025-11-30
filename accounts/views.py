@@ -22,19 +22,20 @@ def register(request):
             
             # Create user profile
             UserProfile.objects.create(user=user)
-
-            # Create a welcome notification so new users see the bell badge
+            
+            # ✨ NEW: Create welcome notification for new user
             try:
                 Notification.objects.create(
                     user=user,
                     notification_type='system',
                     title='Welcome to ProTrack!',
-                    message='Thank you for joining. Browse the Training Catalog to enroll in your first course.',
+                    message=f'Hello {user.get_full_name() or user.username}! Welcome to ProTrack - your skills and training management platform. Get started by browsing our training catalog and enrolling in courses that match your interests.',
                     link='/dashboard/training/catalog/',
+                    is_read=False
                 )
-            except Exception:
-                # Fail silently if notifications table is not ready; core registration must still work
-                pass
+            except Exception as e:
+                # Log error but don't fail registration
+                print(f"⚠️ Could not create welcome notification: {e}")
             
             # Auto-login: Authenticate and login the user
             username = form.cleaned_data.get('username')
@@ -44,6 +45,7 @@ def register(request):
             if user is not None:
                 auth_login(request, user)
                 messages.success(request, f'Welcome {username}! Your account has been created successfully.')
+                
                 # Redirect based on user type
                 if user.is_superuser:
                     return redirect('dashboard:admin_dashboard')
