@@ -54,19 +54,12 @@ class CustomUser(AbstractUser):
         return f"{self.username} - {self.get_user_type_display()}"
 
     def get_profile_picture_url(self):
-        """Get profile picture URL (Supabase URL or local file or default)"""
-        # First check for Supabase URL
+        """Get profile picture URL (Supabase URL or default avatar - never local files)"""
+        # Only use Supabase URL
         if self.profile_picture_url:
             return self.profile_picture_url
         
-        # Then check for local file
-        if self.profile_picture:
-            try:
-                return self.profile_picture.url
-            except:
-                pass
-        
-        # Return default avatar
+        # Return default avatar (never use local files)
         name = self.get_full_name() or self.username
         return f"https://ui-avatars.com/api/?name={name.replace(' ', '+')}&background=667eea&color=fff"
 class UserProfile(models.Model):
