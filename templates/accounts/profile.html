@@ -73,13 +73,15 @@
     <!-- Profile Card -->
     <div class="card">
       <div class="card-body text-center">
-        {% if user.profile_picture %}
-          <img src="{{ user.profile_picture.url }}" alt="Profile Picture" class="avatar-ring mb-3">
+        {% if user.profile_picture_url or user.profile_picture %}
+          <img src="{{ user.get_profile_picture_url }}" 
+          alt="Profile Picture" 
+          class="avatar-ring mb-3">
         {% else %}
-          <div class="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle"
-               style="width:120px;height:120px;background: var(--primary-gradient);">
-            <i class="fas fa-user fa-3x text-white"></i>
-          </div>
+            <div class="d-inline-flex align-items-center justify-content-center mb-3 rounded-circle"
+                style="width:120px;height:120px;background: var(--primary-gradient);">
+                <i class="fas fa-user fa-3x text-white"></i>
+            </div>
         {% endif %}
 
         <h4 class="mb-1">{{ user.get_full_name|default:user.username }}</h4>

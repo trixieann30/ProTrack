@@ -1,23 +1,28 @@
-"""
-Supabase Storage Utilities for ProTrack
-Handles file uploads to Supabase Storage buckets: profilepic and Uploadfiles
-"""
+"""Supabase Storage Utilities for ProTrack
+Handles file uploads to Supabase Storage buckets: profilepic and Uploadfiles"""
 
 import os
 import requests
-from django.conf import settings
 from typing import Optional, Tuple
 import mimetypes
+from decouple import config
 
 
 class SupabaseStorage:
     """Handle file operations with Supabase Storage"""
     
     def __init__(self):
-        self.supabase_url = os.getenv('SUPABASE_URL', '')
-        self.supabase_key = os.getenv('SUPABASE_KEY', '')
-        self.storage_url = f"{self.supabase_url}/storage/v1"
+        # Load from environment variables using decouple
+        self.supabase_url = config('SUPABASE_URL', default='').rstrip('/')
+        self.supabase_key = config('SUPABASE_KEY', default='')
         
+        if self.supabase_url and self.supabase_key:
+            print(f"✅ Supabase configured: {self.supabase_url[:30]}...")
+        else:
+            print("❌ Supabase credentials missing!")
+            
+        self.storage_url = f"{self.supabase_url}/storage/v1"
+    
     def _get_headers(self):
         """Get authorization headers for Supabase API"""
         return {
@@ -51,23 +56,47 @@ class SupabaseStorage:
             headers = self._get_headers()
             headers['Content-Type'] = content_type
             
+            # Read file data
+            file.seek(0)  # Reset file pointer to start
+            file_data = file.read()
+            
+            print(f"📤 Uploading to: {upload_url}")
+            print(f"📦 File size: {len(file_data)} bytes")
+            print(f"📦 Content-Type: {content_type}")
+            
             # Upload file
             response = requests.post(
                 upload_url,
                 headers=headers,
-                data=file.read()
+                data=file_data,
+                timeout=30
             )
+            
+            print(f"📥 Response status: {response.status_code}")
             
             if response.status_code in [200, 201]:
                 # Get public URL
                 public_url = f"{self.supabase_url}/storage/v1/object/public/{bucket_name}/{file_path}"
+                print(f"✅ Upload successful: {public_url}")
                 return True, public_url, None
             else:
-                error_msg = response.json().get('message', 'Upload failed')
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', error_data.get('error', 'Upload failed'))
+                except:
+                    error_msg = f'Upload failed with status {response.status_code}: {response.text[:200]}'
+                
+                print(f"❌ Upload failed: {error_msg}")
                 return False, '', error_msg
                 
+        except requests.exceptions.Timeout:
+            error_msg = 'Upload timeout - please try again'
+            print(f"❌ {error_msg}")
+            return False, '', error_msg
         except Exception as e:
-            return False, '', str(e)
+            error_msg = str(e)
+            print(f"❌ Exception during upload: {error_msg}")
+            return False, '', error_msg
     
     def delete_file(self, bucket_name: str, file_path: str) -> Tuple[bool, Optional[str]]:
         """
@@ -88,17 +117,25 @@ class SupabaseStorage:
             
             response = requests.delete(
                 delete_url,
-                headers=self._get_headers()
+                headers=self._get_headers(),
+                timeout=10
             )
             
             if response.status_code in [200, 204]:
+                print(f"✅ File deleted: {file_path}")
                 return True, None
             else:
-                error_msg = response.json().get('message', 'Delete failed')
+                try:
+                    error_msg = response.json().get('message', 'Delete failed')
+                except:
+                    error_msg = f'Delete failed with status {response.status_code}'
+                print(f"❌ Delete failed: {error_msg}")
                 return False, error_msg
                 
         except Exception as e:
-            return False, str(e)
+            error_msg = str(e)
+            print(f"❌ Exception during delete: {error_msg}")
+            return False, error_msg
     
     def get_public_url(self, bucket_name: str, file_path: str) -> str:
         """
@@ -134,14 +171,18 @@ class SupabaseStorage:
             
             response = requests.get(
                 list_url,
-                headers=self._get_headers()
+                headers=self._get_headers(),
+                timeout=10
             )
             
             if response.status_code == 200:
                 files = response.json()
                 return True, files, None
             else:
-                error_msg = response.json().get('message', 'List failed')
+                try:
+                    error_msg = response.json().get('message', 'List failed')
+                except:
+                    error_msg = f'List failed with status {response.status_code}'
                 return False, [], error_msg
                 
         except Exception as e:
@@ -149,7 +190,6 @@ class SupabaseStorage:
 
 
 # Helper functions for specific use cases
-
 def upload_profile_picture(user_id: int, file) -> Tuple[bool, str, Optional[str]]:
     """
     Upload a profile picture to the profilepic bucket
@@ -162,8 +202,19 @@ def upload_profile_picture(user_id: int, file) -> Tuple[bool, str, Optional[str]
         Tuple of (success: bool, url: str, error: Optional[str])
     """
     storage = SupabaseStorage()
-    file_extension = os.path.splitext(file.name)[1]
+    
+    # Get file extension
+    file_extension = os.path.splitext(file.name)[1].lower()
+    
+    # Validate file extension
+    allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+    if file_extension not in allowed_extensions:
+        return False, '', f'Invalid file type. Allowed: {", ".join(allowed_extensions)}'
+    
+    # Create file path
     file_path = f"user_{user_id}/profile{file_extension}"
+    
+    print(f"🔄 Uploading profile picture for user {user_id}")
     return storage.upload_file(file, 'profilepic', file_path)
 
 
@@ -179,9 +230,12 @@ def upload_training_material(course_id: int, file) -> Tuple[bool, str, Optional[
         Tuple of (success: bool, url: str, error: Optional[str])
     """
     storage = SupabaseStorage()
+    
     # Keep original filename but make it safe
-    safe_filename = file.name.replace(' ', '_')
+    safe_filename = file.name.replace(' ', '_').replace('(', '').replace(')', '')
     file_path = f"course_{course_id}/{safe_filename}"
+    
+    print(f"🔄 Uploading training material for course {course_id}")
     return storage.upload_file(file, 'Uploadfiles', file_path)
 
 
@@ -225,4 +279,6 @@ def upload_certificate(enrollment_id: int, pdf_file) -> Tuple[bool, str, Optiona
     """
     storage = SupabaseStorage()
     file_path = f"certificates/enrollment_{enrollment_id}.pdf"
+    
+    print(f"🔄 Uploading certificate for enrollment {enrollment_id}")
     return storage.upload_file(pdf_file, 'Uploadfiles', file_path)
