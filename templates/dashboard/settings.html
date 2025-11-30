@@ -194,8 +194,10 @@
     <!-- User Info Section -->
     <div class="user-info-section">
         <div class="user-profile-header">
-            {% if user.profile_picture %}
-                <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" class="user-avatar-large">
+            {% if user.profile_picture_url or user.profile_picture %}
+                <img src="{{ user.get_profile_picture_url }}" 
+                    alt="{{ user.username }}" 
+                    class="user-avatar-large">
             {% else %}
                 <div class="user-avatar-placeholder-large">
                     {{ user.username|slice:":1"|upper }}

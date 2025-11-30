@@ -5,201 +5,201 @@
 
 {% block extra_css %}
 <style>
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.page-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
     margin-bottom: 2rem;
 }
 
-.page-title {
-    font-size: 2rem;
-    font-weight: 700;
+.page-title { 
+    font-size: 2rem; 
+    font-weight: 700; 
     color: #1f2937;
 }
 
-.breadcrumb {
-    display: flex;
-    gap: 0.5rem;
-    color: #6b7280;
+.breadcrumb { 
+    display: flex; 
+    gap: 0.5rem; 
+    color: #6b7280; 
     margin-bottom: 1rem;
 }
 
-.breadcrumb a {
-    color: #8b5cf6;
+.breadcrumb a { 
+    color: #8b5cf6; 
     text-decoration: none;
 }
 
-.user-profile-card {
-    background: white;
-    border-radius: 15px;
-    padding: 2rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+.user-profile-card { 
+    background: white; 
+    border-radius: 15px; 
+    padding: 2rem; 
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); 
     margin-bottom: 2rem;
 }
 
-.user-header {
-    display: flex;
-    align-items: center;
-    gap: 2rem;
-    margin-bottom: 2rem;
-    padding-bottom: 2rem;
+.user-header { 
+    display: flex; 
+    align-items: center; 
+    gap: 2rem; 
+    margin-bottom: 2rem; 
+    padding-bottom: 2rem; 
     border-bottom: 2px solid #f3f4f6;
 }
 
-.user-avatar-large {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
+.user-avatar-large { 
+    width: 120px; 
+    height: 120px; 
+    border-radius: 50%; 
     object-fit: cover;
 }
 
-.user-avatar-placeholder-large {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 3rem;
+.user-avatar-placeholder-large { 
+    width: 120px; 
+    height: 120px; 
+    border-radius: 50%; 
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    color: white; 
+    font-size: 2.5rem; 
     font-weight: 700;
 }
 
-.user-info h2 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1f2937;
+.user-info h2 { 
+    font-size: 1.75rem; 
+    font-weight: 700; 
+    color: #1f2937; 
     margin: 0 0 0.5rem 0;
 }
 
-.user-info p {
-    color: #6b7280;
+.user-info p { 
+    color: #6b7280; 
     margin: 0.25rem 0;
 }
 
-.badge {
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    display: inline-block;
+.badge { 
+    padding: 0.5rem 1rem; 
+    border-radius: 20px; 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    display: inline-block; 
     margin-top: 0.5rem;
 }
 
-.badge-student {
-    background: #dbeafe;
+.badge-student { 
+    background: #dbeafe; 
     color: #1e40af;
 }
 
-.badge-employee {
-    background: #d1fae5;
+.badge-employee { 
+    background: #d1fae5; 
     color: #065f46;
 }
 
-.badge-admin {
-    background: #fef3c7;
+.badge-admin { 
+    background: #fef3c7; 
     color: #92400e;
 }
 
-.badge-active {
-    background: #d1fae5;
+.badge-active { 
+    background: #d1fae5; 
     color: #065f46;
 }
 
-.badge-inactive {
-    background: #fee2e2;
+.badge-inactive { 
+    background: #fee2e2; 
     color: #991b1b;
 }
 
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+.info-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
     gap: 1.5rem;
 }
 
-.info-item {
-    padding: 1rem;
-    background: #f9fafb;
+.info-item { 
+    padding: 1rem; 
+    background: #f9fafb; 
     border-radius: 10px;
 }
 
-.info-label {
-    font-size: 0.85rem;
-    color: #6b7280;
-    font-weight: 600;
+.info-label { 
+    font-size: 0.85rem; 
+    color: #6b7280; 
+    font-weight: 600; 
     margin-bottom: 0.5rem;
 }
 
-.info-value {
-    font-size: 1.1rem;
-    color: #1f2937;
+.info-value { 
+    font-size: 1.1rem; 
+    color: #1f2937; 
     font-weight: 600;
 }
 
-.actions-section {
-    display: flex;
-    gap: 1rem;
+.actions-section { 
+    display: flex; 
+    gap: 1rem; 
     margin-top: 2rem;
 }
 
-.btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    border: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
+.btn { 
+    padding: 0.75rem 1.5rem; 
+    border-radius: 10px; 
+    text-decoration: none; 
+    font-weight: 600; 
+    transition: all 0.3s ease; 
+    border: none; 
+    cursor: pointer; 
+    display: inline-flex; 
+    align-items: center; 
     gap: 0.5rem;
 }
 
-.btn-primary {
-    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+.btn-primary { 
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); 
     color: white;
 }
 
-.btn-primary:hover {
-    transform: translateY(-2px);
+.btn-primary:hover { 
+    transform: translateY(-2px); 
     box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
 }
 
-.btn-danger {
-    background: #ef4444;
+.btn-danger { 
+    background: #ef4444; 
     color: white;
 }
 
-.btn-danger:hover {
+.btn-danger:hover { 
     background: #dc2626;
 }
 
-.btn-warning {
-    background: #f59e0b;
+.btn-warning { 
+    background: #f59e0b; 
     color: white;
 }
 
-.btn-warning:hover {
+.btn-warning:hover { 
     background: #d97706;
 }
 
-.btn-success {
-    background: #10b981;
+.btn-success { 
+    background: #10b981; 
     color: white;
 }
 
-.btn-success:hover {
+.btn-success:hover { 
     background: #059669;
 }
 
-.btn-secondary {
-    background: #6b7280;
+.btn-secondary { 
+    background: #6b7280; 
     color: white;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover { 
     background: #4b5563;
 }
 </style>
@@ -225,34 +225,41 @@
 {% if messages %}
     {% for message in messages %}
         <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-error{% else %}alert-warning{% endif %}">
-  {{ message }}
-</div>
-
-<style>
-.alert {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border-radius: 10px;
-}
-.alert-success {
-  background: #d1fae5;
-}
-.alert-error {
-  background: #fee2e2;
-}
-.alert-warning {
-  background: #fef3c7;
-}
-</style>
-
+            {{ message }}
+        </div>
+        
+        <style>
+        .alert { 
+            padding: 1rem; 
+            margin-bottom: 1rem; 
+            border-radius: 10px;
+        }
+        
+        .alert-success { 
+            background: #d1fae5;
+        }
+        
+        .alert-error { 
+            background: #fee2e2;
+        }
+        
+        .alert-warning { 
+            background: #fef3c7;
+        }
+        </style>
     {% endfor %}
 {% endif %}
 
 <div class="user-profile-card">
     <div class="user-header">
-        {% if selected_user.profile_picture %}
-            <img src="{{ selected_user.profile_picture.url }}" alt="{{ selected_user.username }}" class="user-avatar-large">
+        <!-- UPDATED PROFILE PICTURE SECTION -->
+        {% if selected_user.profile_picture_url or selected_user.profile_picture %}
+            <!-- User has a profile picture (either Supabase URL or local file) -->
+            <img src="{{ selected_user.get_profile_picture_url }}" 
+                 alt="{{ selected_user.username }}" 
+                 class="user-avatar-large">
         {% else %}
+            <!-- No profile picture - show placeholder with first letter -->
             <div class="user-avatar-placeholder-large">
                 {{ selected_user.username|slice:":1"|upper }}
             </div>
@@ -262,13 +269,16 @@
             <h2>{{ selected_user.get_full_name|default:selected_user.username }}</h2>
             <p><strong>@{{ selected_user.username }}</strong></p>
             <p>{{ selected_user.email }}</p>
+            
             <div>
                 <span class="badge badge-{{ selected_user.user_type }}">
                     {{ selected_user.get_user_type_display }}
                 </span>
+                
                 <span class="badge {% if selected_user.is_active %}badge-active{% else %}badge-inactive{% endif %}">
                     {% if selected_user.is_active %}Active{% else %}Inactive{% endif %}
                 </span>
+                
                 {% if selected_user.is_superuser %}
                     <span class="badge badge-admin">Superuser</span>
                 {% endif %}
@@ -328,22 +338,21 @@
         
         {% if selected_user.id != user.id %}
             <form method="POST" action="{% url 'dashboard:admin_user_toggle_status' selected_user.id %}" style="display:inline;">
-            {% csrf_token %}
-            <button type="submit" class="btn {% if selected_user.is_active %}btn-warning{% else %}btn-success{% endif %}">
-                {% if selected_user.is_active %}
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
-                    </svg>
-                    Deactivate
-                {% else %}
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    Activate
-                {% endif %}
-            </button>
+                {% csrf_token %}
+                <button type="submit" class="btn {% if selected_user.is_active %}btn-warning{% else %}btn-success{% endif %}">
+                    {% if selected_user.is_active %}
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                        </svg>
+                        Deactivate
+                    {% else %}
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Activate
+                    {% endif %}
+                </button>
             </form>
-
             
             <a href="{% url 'dashboard:admin_user_delete' selected_user.id %}" class="btn btn-danger">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">

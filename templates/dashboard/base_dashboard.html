@@ -449,6 +449,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isOpen) {
             notificationDropdown.classList.add('show');
             loadNotifications();
+            
+            // Mark all as read when opening the dropdown
+            markAllAsReadSilently();
         } else {
             notificationDropdown.classList.remove('show');
         }
@@ -491,6 +494,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Mark all as read silently (without reloading)
+    function markAllAsReadSilently() {
+        fetch('/dashboard/api/notifications/mark-all-read/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Hide the badge immediately
+                notificationCount.style.display = 'none';
+                
+                // Update all notifications to show as read
+                document.querySelectorAll('.notification-item.unread').forEach(item => {
+                    item.classList.remove('unread');
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error marking notifications as read:', error);
+        });
+    }
+    
     // Render notifications
     function renderNotifications(notifications) {
         if (notifications.length === 0) {
@@ -505,7 +534,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const html = notifications.map(notif => `
             <div class="notification-item ${notif.is_read ? '' : 'unread'}" 
-                 data-id="${notif.id}"
+                 data-id="${notif.id}" 
                  data-link="${notif.link || '#'}">
                 <div style="display: flex; align-items: start;">
                     <div class="notification-icon ${notif.type}">
@@ -571,7 +600,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }).then(() => {
             element.classList.remove('unread');
-            loadNotifications(); // Refresh to update count
         });
         
         // Navigate to link if provided
@@ -580,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Mark all as read
+    // Mark all as read (button click)
     markAllReadBtn.addEventListener('click', function() {
         fetch('/dashboard/api/notifications/mark-all-read/', {
             method: 'POST',
@@ -588,12 +616,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-CSRFToken': getCookie('csrftoken'),
                 'Content-Type': 'application/json'
             }
-        }).then(response => response.json())
-          .then(data => {
-              if (data.success) {
-                  loadNotifications();
-              }
-          });
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadNotifications();
+            }
+        });
     });
     
     // Delete notification
@@ -605,12 +634,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-CSRFToken': getCookie('csrftoken'),
                     'Content-Type': 'application/json'
                 }
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      loadNotifications();
-                  }
-              });
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadNotifications();
+                }
+            });
         }
     }
     
@@ -641,16 +671,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 <div class="dashboard-info">
                     <a href="{% url 'accounts:profile' %}" class="d-flex align-items-center text-decoration-none">
-                        {% if user.profile_picture %}
-                            <img src="{{ user.profile_picture.url }}" 
-                                 alt="{{ user.get_full_name|default:user.username }}'s Avatar" 
-                                 class="dashboard-avatar">
-                        {% else %}
-                            <img src="https://ui-avatars.com/api/?name={{ user.get_full_name|default:user.username }}&background=667eea&color=fff" 
-                                 alt="User Avatar" 
-                                 class="dashboard-avatar">
-                        {% endif %}
-
+                        <img src="{{ user.get_profile_picture_url }}" 
+                            alt="{{ user.get_full_name|default:user.username }}'s Avatar"
+                            class="dashboard-avatar">
                         <span class="user-name d-none d-md-inline">
                             <strong>{{ user.get_full_name|default:user.username }}</strong>
                         </span>
