@@ -52,8 +52,8 @@
 }
 
 body {
-    font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--light-color);
+    font-family: 'Inter', sans-serif;
+    background-color: var(--light-color);
     color: var(--dark-color);
     line-height: 1.6;
     overflow-x: hidden;
@@ -779,9 +779,11 @@ footer {
 /* Main Content Area */
 .dashboard-wrapper {
     margin-left: var(--sidebar-width);
-    padding-top: var(--header-height);
+    padding: 2rem;
+    transition: margin-left var(--transition-base);
     min-height: 100vh;
     background: var(--content-bg);
+    z-index: auto; /* Fix for modal backdrop issue */
 }
 
 .dashboard-header {
