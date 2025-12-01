@@ -76,3 +76,39 @@ class UserProfileForm(forms.ModelForm):
             'skills': forms.TextInput(attrs={'class': 'form-control'}),
             'certifications': forms.TextInput(attrs={'class': 'form-control'}),
         }
+from django import forms
+from accounts.models import NotificationPreference
+
+
+class NotificationPreferenceForm(forms.ModelForm):
+    """Form for managing notification preferences"""
+    
+    class Meta:
+        model = NotificationPreference
+        exclude = ['user', 'created_at', 'updated_at']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # CRITICAL: Explicitly set widget for all boolean fields
+        boolean_fields = [
+            'email_on_enrollment',
+            'email_on_completion',
+            'email_on_certificate',
+            'email_on_assignment',
+            'email_on_reminder',
+            'notify_on_enrollment',
+            'notify_on_completion',
+            'notify_on_certificate',
+            'notify_on_assignment',
+            'notify_on_reminder',
+            'notify_on_announcement',
+        ]
+        
+        for field_name in boolean_fields:
+            if field_name in self.fields:
+                self.fields[field_name].widget = forms.CheckboxInput(attrs={
+                    'class': 'form-check-input',
+                    'role': 'switch'
+                })
+                self.fields[field_name].required = False

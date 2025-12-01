@@ -416,67 +416,171 @@ class Notification(models.Model):
 
     @classmethod
     def create_enrollment_notification(cls, enrollment, assigned_by=None):
-        """Create a notification when a user enrolls in or is assigned to a course."""
+        """Create notification when user enrolls or is assigned to a course."""
         user = enrollment.user
         course = enrollment.course
-
-        # Distinguish between self-enrolled and admin-assigned training
+        
+        # Get user's notification preferences
+        prefs = getattr(user, 'notification_preferences', None)
+        if not prefs:
+            from accounts.models import NotificationPreference
+            prefs, _ = NotificationPreference.objects.get_or_create(user=user)
+        
+        # Debug logging
+        print("=" * 70)
+        print(f"🔔 CREATING ENROLLMENT NOTIFICATION FOR: {user.username}")
+        print("=" * 70)
+        
+        # Determine notification type and message
         if assigned_by is not None:
             notification_type = 'assignment'
             assigned_name = assigned_by.get_full_name() or assigned_by.username
             title = 'New Training Assigned'
-            message = f'{assigned_name} assigned you to "{course.title}".' 
+            message = f'{assigned_name} assigned you to "{course.title}".'
+            
+            # Check email preference for assignment
+            send_email = prefs.email_on_assignment
+            create_notification = prefs.notify_on_assignment
+            
+            print(f"📋 Type: ASSIGNMENT (by {assigned_name})")
+            print(f"📧 Email toggle: {send_email}")
+            print(f"🔔 In-app toggle: {create_notification}")
         else:
             notification_type = 'enrollment'
             title = 'Enrollment Confirmed'
             message = f'You have been enrolled in "{course.title}".'
-
+            
+            # Check email preference for enrollment
+            send_email = prefs.email_on_enrollment
+            create_notification = prefs.notify_on_enrollment
+            
+            print(f"📋 Type: ENROLLMENT (self-enrolled)")
+            print(f"📧 Email toggle: {send_email}")
+            print(f"🔔 In-app toggle: {create_notification}")
+        
         link = reverse('dashboard:course_detail', args=[course.id])
-
-        return cls.objects.create(
-            user=user,
-            notification_type=notification_type,
-            title=title,
-            message=message,
-            link=link,
-            related_enrollment=enrollment,
-        )
-
+        
+        # Create in-app notification if enabled
+        notification = None
+        if create_notification:
+            notification = cls.objects.create(
+                user=user,
+                notification_type=notification_type,
+                title=title,
+                message=message,
+                link=link,
+                related_enrollment=enrollment,
+            )
+            print(f"✅ In-app notification CREATED (ID: {notification.id})")
+        else:
+            print(f"❌ In-app notification SKIPPED (toggle is OFF)")
+        
+        # Send email if enabled
+        if send_email:
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                send_mail(
+                    subject=f'ProTrack: {title}',
+                    message=f'{message}\n\nView details: {settings.SITE_URL}{link}',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                )
+                print(f"✅ Email SENT to {user.email}")
+            except Exception as e:
+                print(f"❌ Email FAILED: {e}")
+        else:
+            print(f"❌ Email SKIPPED (toggle is OFF)")
+        
+        print("=" * 70)
+        print()
+        
+        return notification
     @classmethod
     def create_completion_notification(cls, enrollment):
-        """Create a notification when a course is marked as completed for the user."""
+        """Create notification when course is completed."""
         user = enrollment.user
         course = enrollment.course
-
+        
+        # Get preferences
+        prefs = getattr(user, 'notification_preferences', None)
+        if not prefs:
+            from accounts.models import NotificationPreference
+            prefs, _ = NotificationPreference.objects.get_or_create(user=user)
+        
         title = 'Course Completed'
-        message = f'Great job! You completed "{course.title}".' 
+        message = f'Great job! You completed "{course.title}".'
         link = reverse('dashboard:my_training')
-
-        return cls.objects.create(
-            user=user,
-            notification_type='completion',
-            title=title,
-            message=message,
-            link=link,
-            related_enrollment=enrollment,
-        )
-
+        
+        # Create in-app notification if enabled
+        notification = None
+        if prefs.notify_on_completion:
+            notification = cls.objects.create(
+                user=user,
+                notification_type='completion',
+                title=title,
+                message=message,
+                link=link,
+                related_enrollment=enrollment,
+            )
+        
+        # Send email if enabled
+        if prefs.email_on_completion:
+            try:
+                send_mail(
+                    subject=f'ProTrack: {title}',
+                    message=f'{message}\n\nView your training: {settings.SITE_URL}{link}',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                print(f"Failed to send email: {e}")
+        
+        return notification
+    
     @classmethod
     def create_certificate_notification(cls, certificate):
-        """Create a notification when a certificate is issued for a completed course."""
+        """Create notification when certificate is issued."""
         enrollment = certificate.enrollment
         user = enrollment.user
         course = enrollment.course
-
+        
+        # Get preferences
+        prefs = getattr(user, 'notification_preferences', None)
+        if not prefs:
+            from accounts.models import NotificationPreference
+            prefs, _ = NotificationPreference.objects.get_or_create(user=user)
+        
         title = 'Certificate Issued'
-        message = f'A certificate has been issued for "{course.title}".' 
+        message = f'A certificate has been issued for "{course.title}".'
         link = certificate.certificate_url or reverse('dashboard:certifications')
-
-        return cls.objects.create(
-            user=user,
-            notification_type='certificate',
-            title=title,
-            message=message,
-            link=link,
-            related_certificate=certificate,
-        )
+        
+        # Create in-app notification if enabled
+        notification = None
+        if prefs.notify_on_certificate:
+            notification = cls.objects.create(
+                user=user,
+                notification_type='certificate',
+                title=title,
+                message=message,
+                link=link,
+                related_certificate=certificate,
+            )
+        
+        # Send email if enabled
+        if prefs.email_on_certificate:
+            try:
+                send_mail(
+                    subject=f'ProTrack: {title}',
+                    message=f'{message}\n\nDownload: {settings.SITE_URL}{link}',
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                print(f"Failed to send email: {e}")
+        
+        return notification

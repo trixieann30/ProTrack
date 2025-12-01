@@ -17,6 +17,8 @@ from django.views.decorators.http import require_POST
 
 from accounts.models import CustomUser
 from training.models import TrainingModule
+from accounts.models import NotificationPreference
+from accounts.forms import NotificationPreferenceForm
 
 from .models import (
     Certificate,
@@ -1188,10 +1190,38 @@ def notifications_list(request):
 
 @login_required
 def notifications_api(request):
-    """API endpoint to get notifications as JSON"""
+    """API endpoint to get notifications as JSON - respects user preferences"""
+    
+    # Get user preferences
+    prefs = getattr(request.user, 'notification_preferences', None)
+    if not prefs:
+        from accounts.models import NotificationPreference
+        prefs, _ = NotificationPreference.objects.get_or_create(user=request.user)
+    
+    # Start with all notifications for this user
     notifications = Notification.objects.filter(
         user=request.user
-    ).order_by('-created_at')[:20]
+    ).order_by('-created_at')
+    
+    # Filter based on preferences
+    allowed_types = []
+    
+    if prefs.notify_on_enrollment:
+        allowed_types.extend(['enrollment', 'assignment'])
+    if prefs.notify_on_completion:
+        allowed_types.append('completion')
+    if prefs.notify_on_certificate:
+        allowed_types.append('certificate')
+    if prefs.notify_on_reminder:
+        allowed_types.append('reminder')
+    if prefs.notify_on_announcement:
+        allowed_types.append('announcement')
+    
+    # Always show system notifications
+    allowed_types.append('system')
+    
+    # Filter notifications by allowed types
+    notifications = notifications.filter(notification_type__in=allowed_types)[:20]
     
     data = {
         'notifications': [
@@ -1204,11 +1234,15 @@ def notifications_api(request):
                 'is_read': n.is_read,
                 'created_at': n.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 'time_ago': get_time_ago(n.created_at),
-            }
-            for n in notifications
+            } for n in notifications
         ],
-        'unread_count': Notification.objects.filter(user=request.user, is_read=False).count()
+        'unread_count': Notification.objects.filter(
+            user=request.user,
+            is_read=False,
+            notification_type__in=allowed_types  # Only count allowed types
+        ).count()
     }
+    
     return JsonResponse(data)
 
 @login_required
@@ -1351,3 +1385,100 @@ def update_enrollment_completion(request):
         return JsonResponse({'success': False, 'error': 'Enrollment not found'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+      
+@login_required
+def notification_settings(request):
+    """Manage notification preferences"""
+    
+    # Get or create notification preferences for user
+    preferences, created = NotificationPreference.objects.get_or_create(
+        user=request.user
+    )
+    
+    if request.method == 'POST':
+        # CRITICAL FIX: Manually handle all boolean fields
+        # Unchecked checkboxes don't appear in POST data
+        boolean_fields = [
+            'email_on_enrollment',
+            'email_on_completion',
+            'email_on_certificate',
+            'email_on_assignment',
+            'email_on_reminder',
+            'notify_on_enrollment',
+            'notify_on_completion',
+            'notify_on_certificate',
+            'notify_on_assignment',
+            'notify_on_reminder',
+            'notify_on_announcement',
+        ]
+        
+        # Debug logging
+        print("=" * 50)
+        print("SAVING NOTIFICATION PREFERENCES")
+        print("=" * 50)
+        
+        # Update each field based on POST data
+        for field in boolean_fields:
+            # If field is in POST, it's checked (True)
+            # If field is NOT in POST, it's unchecked (False)
+            new_value = field in request.POST
+            old_value = getattr(preferences, field)
+            
+            # Debug output
+            if old_value != new_value:
+                print(f"🔄 {field}: {old_value} → {new_value}")
+            
+            setattr(preferences, field, new_value)
+        
+        # Save preferences
+        preferences.save()
+        
+        # Verify save
+        preferences.refresh_from_db()
+        print(f"✅ Saved! notify_on_enrollment = {preferences.notify_on_enrollment}")
+        print("=" * 50)
+        
+        messages.success(request, 'Notification preferences updated successfully.')
+        return redirect('dashboard:notification_settings')
+    
+    # GET request - show form
+    form = NotificationPreferenceForm(instance=preferences)
+    
+    context = {
+        'form': form,
+        'preferences': preferences,
+    }
+    
+    return render(request, 'dashboard/notification_settings.html', context)
+
+    @login_required
+    def debug_notification_preferences(request):
+        """Debug view to check notification preferences"""
+        from accounts.models import NotificationPreference
+        
+        prefs, created = NotificationPreference.objects.get_or_create(
+            user=request.user
+        )
+        
+        debug_info = {
+            'User': request.user.username,
+            'Preferences Created': created,
+            '---EMAIL NOTIFICATIONS---': '',
+            'email_on_enrollment': prefs.email_on_enrollment,
+            'email_on_completion': prefs.email_on_completion,
+            'email_on_certificate': prefs.email_on_certificate,
+            'email_on_assignment': prefs.email_on_assignment,
+            'email_on_reminder': prefs.email_on_reminder,
+            '---IN-APP NOTIFICATIONS---': '',
+            'notify_on_enrollment': prefs.notify_on_enrollment,
+            'notify_on_completion': prefs.notify_on_completion,
+            'notify_on_certificate': prefs.notify_on_certificate,
+            'notify_on_assignment': prefs.notify_on_assignment,
+            'notify_on_reminder': prefs.notify_on_reminder,
+            'notify_on_announcement': prefs.notify_on_announcement,
+            '---DIGEST---': '',
+            'daily_digest': prefs.daily_digest,
+            'weekly_digest': prefs.weekly_digest,
+        }
+        
+        return JsonResponse(debug_info, json_dumps_params={'indent': 2})

@@ -9,7 +9,6 @@ class TrainingCourseForm(forms.ModelForm):
             'description',
             'category',
             'level',
-            'icon_class',
             'duration_hours',
             'status',
             'target_programs',
@@ -17,3 +16,4 @@ class TrainingCourseForm(forms.ModelForm):
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }
+
