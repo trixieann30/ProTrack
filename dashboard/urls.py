@@ -64,4 +64,5 @@ urlpatterns = [
     path('api/notifications/<int:notification_id>/read/', views.mark_notification_read, name='mark_notification_read'),
     path('api/notifications/mark-all-read/', views.mark_all_read, name='mark_all_read'),
     path('api/notifications/<int:notification_id>/delete/', views.delete_notification, name='delete_notification'),
+    path('settings/notifications/', views.notification_settings, name='notification_settings'),
 ]

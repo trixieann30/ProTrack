@@ -1,0 +1,211 @@
+{% extends 'dashboard/base_dashboard.html' %}
+{% load static %}
+
+{% block title %}Notification Settings - ProTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+.breadcrumb { display: flex; gap: 0.5rem; color: #6b7280; margin-bottom: 1rem; }
+.breadcrumb a { color: #8b5cf6; text-decoration: none; }
+.settings-card { background: white; border-radius: 15px; padding: 2rem; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); max-width: 900px; }
+.settings-card h2 { font-size: 1.75rem; font-weight: 700; color: #1f2937; margin-bottom: 0.5rem; }
+.settings-card .subtitle { color: #6b7280; margin-bottom: 2rem; }
+.settings-section { margin-bottom: 2.5rem; padding-bottom: 2rem; border-bottom: 2px solid #f3f4f6; }
+.settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.section-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+.section-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; color: white; }
+.section-icon.email { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+.section-icon.bell { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+.section-header h3 { font-size: 1.25rem; font-weight: 700; color: #1f2937; margin: 0; }
+.section-header p { font-size: 0.9rem; color: #6b7280; margin: 0; }
+.preference-item { display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: #f9fafb; border-radius: 10px; margin-bottom: 0.75rem; transition: all 0.2s; }
+.preference-item:hover { background: #f3f4f6; }
+.preference-info { flex: 1; }
+.preference-label { font-weight: 600; color: #1f2937; margin-bottom: 0.25rem; }
+.preference-description { font-size: 0.85rem; color: #6b7280; }
+.form-check { margin: 0; }
+.form-check-input { width: 48px; height: 24px; cursor: pointer; border-radius: 12px; }
+.form-check-input:checked { background-color: #8b5cf6; border-color: #8b5cf6; }
+.btn { padding: 0.75rem 1.5rem; border-radius: 10px; text-decoration: none; font-weight: 600; transition: all 0.3s ease; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; }
+.btn-primary { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); }
+.btn-secondary { background: #6b7280; color: white; }
+.btn-secondary:hover { background: #4b5563; }
+.form-actions { display: flex; gap: 1rem; margin-top: 2rem; padding-top: 2rem; border-top: 2px solid #f3f4f6; }
+.alert { padding: 1rem; border-radius: 10px; margin-bottom: 1.5rem; }
+.alert-success { background: #d1fae5; color: #065f46; }
+.form-switch .form-check-input { width: 48px; height: 24px; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%28255,255,255,1%29'/%3e%3c/svg%3e"); background-position: left center; border-radius: 12px; transition: background-position .15s ease-in-out; }
+.form-switch .form-check-input:checked { background-position: right center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'dashboard:dashboard' %}">Dashboard</a> /
+    <a href="{% url 'dashboard:settings' %}">Settings</a> /
+    <span>Notification Settings</span>
+</div>
+
+<div class="settings-card">
+    <h2>Notification Settings</h2>
+    <p class="subtitle">Manage how you receive notifications and updates</p>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Email Notifications Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-icon email">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <div>
+                    <h3>Email Notifications</h3>
+                    <p>Receive notifications via email</p>
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Course Enrollment</div>
+                    <div class="preference-description">Get notified when you enroll or are assigned to a course</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.email_on_enrollment }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Course Completion</div>
+                    <div class="preference-description">Get notified when you complete a course</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.email_on_completion }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Certificate Issued</div>
+                    <div class="preference-description">Get notified when a certificate is issued to you</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.email_on_certificate }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Training Assignment</div>
+                    <div class="preference-description">Get notified when an admin assigns training to you</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.email_on_assignment }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Reminders</div>
+                    <div class="preference-description">Get reminder emails for upcoming deadlines</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.email_on_reminder }}
+                </div>
+            </div>
+        </div>
+
+        <!-- In-App Notifications Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-icon bell">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <div>
+                    <h3>In-App Notifications</h3>
+                    <p>Show notifications in the notification center</p>
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Course Enrollment</div>
+                    <div class="preference-description">Show notification when you enroll in a course</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.notify_on_enrollment }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Course Completion</div>
+                    <div class="preference-description">Show notification when you complete a course</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.notify_on_completion }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Certificate Issued</div>
+                    <div class="preference-description">Show notification when a certificate is issued</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.notify_on_certificate }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Training Assignment</div>
+                    <div class="preference-description">Show notification when training is assigned</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.notify_on_assignment }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Reminders</div>
+                    <div class="preference-description">Show reminder notifications</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.notify_on_reminder }}
+                </div>
+            </div>
+
+            <div class="preference-item">
+                <div class="preference-info">
+                    <div class="preference-label">Announcements</div>
+                    <div class="preference-description">Show system announcements and updates</div>
+                </div>
+                <div class="form-check form-switch">
+                    {{ form.notify_on_announcement }}
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Save Preferences
+            </button>
+            <a href="{% url 'dashboard:settings' %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

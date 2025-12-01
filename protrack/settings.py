@@ -9,13 +9,13 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+
 import os
 from pathlib import Path
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -25,6 +25,9 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-3ixyr7lvc=udrd!j_zsp_
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
+
+# Check if we're in production
+IS_PRODUCTION = config('IS_PRODUCTION', default=False, cast=bool)
 
 ALLOWED_HOSTS = [
     "protrackskillmanagement.onrender.com",
@@ -37,9 +40,13 @@ CSRF_TRUSTED_ORIGINS = [
     "https://protrackskillmanagement.onrender.com",
 ]
 
+# Site URL for email links and notifications
+if IS_PRODUCTION:
+    SITE_URL = 'https://protrackskillmanagement.onrender.com'
+else:
+    SITE_URL = 'http://127.0.0.1:8000'
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -54,12 +61,12 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    'crispy_forms',
+    'rest_framework',
     
     # Local apps
     'accounts',
     'dashboard',
-    'crispy_forms',
-    'rest_framework',
     'training',
 ]
 
@@ -78,7 +85,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
-    
 ]
 
 ROOT_URLCONF = 'protrack.urls'
@@ -100,7 +106,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'protrack.wsgi.application'
-
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -129,7 +134,6 @@ else:
         }
     }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -148,27 +152,43 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# ============================================
+# EMAIL CONFIGURATION
+# ============================================
 
+if IS_PRODUCTION:
+    # SendGrid for production emails
+    SENDGRID_API_KEY = config('SENDGRID_API_KEY', default='')
+    
+    if SENDGRID_API_KEY and SENDGRID_API_KEY.startswith('SG.'):
+        EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
+        SENDGRID_SANDBOX_MODE_IN_DEBUG = False
+        DEFAULT_FROM_EMAIL = 'ProTrack <trixieann750@gmail.com>'
+        print(f"✓ SendGrid configured with key: {SENDGRID_API_KEY[:10]}...")
+    else:
+        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+        DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
+        print("⚠️ SendGrid API key not found, using console backend")
+else:
+    # Development: Console backend (prints emails to terminal)
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
+    print("📧 Development mode: Emails will print to console")
 
-# Email backend for development (prints emails to console)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
+EMAIL_TIMEOUT = 30
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -177,12 +197,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============================================
+# AUTHENTICATION CONFIGURATION
+# ============================================
 
 LOGIN_URL = 'account_login'
 LOGIN_REDIRECT_URL = 'dashboard:dashboard'
@@ -216,31 +238,11 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
+# Crispy Forms
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
-# Check if we're in production or have email configured
-IS_PRODUCTION = config('IS_PRODUCTION', default=False, cast=bool)
 
-if IS_PRODUCTION:
-    # SendGrid for production
-    SENDGRID_API_KEY = config('SENDGRID_API_KEY', default='')
-    
-    if SENDGRID_API_KEY and SENDGRID_API_KEY.startswith('SG.'):
-        EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
-        SENDGRID_SANDBOX_MODE_IN_DEBUG = False
-        DEFAULT_FROM_EMAIL = 'ProTrack <trixieann750@gmail.com>'
-        print(f"✅ SendGrid configured with key: {SENDGRID_API_KEY[:10]}...")
-    else:
-        EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-        DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
-        print("⚠️ SendGrid API key not found, using console backend")
-else:
-    # Development: Console backend
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    DEFAULT_FROM_EMAIL = 'noreply@protrack.local'
-
-    EMAIL_TIMEOUT = 30
 # ============================================
-# LOGGING CONFIGURATION (For debugging email issues)
+# LOGGING CONFIGURATION (For debugging)
 # ============================================
 
 LOGGING = {
@@ -269,6 +271,11 @@ LOGGING = {
             'propagate': False,
         },
         'accounts': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'dashboard': {
             'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': False,

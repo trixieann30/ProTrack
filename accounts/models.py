@@ -70,5 +70,75 @@ class UserProfile(models.Model):
     
     def __str__(self):
         return f"{self.user.username}'s Profile"
+class NotificationPreference(models.Model):
+    """User notification preferences"""
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='notification_preferences'
+    )
+    
+    # Email notifications
+    email_on_enrollment = models.BooleanField(
+        default=True,
+        help_text='Receive email when enrolled in a course'
+    )
+    email_on_completion = models.BooleanField(
+        default=True,
+        help_text='Receive email when you complete a course'
+    )
+    email_on_certificate = models.BooleanField(
+        default=True,
+        help_text='Receive email when a certificate is issued'
+    )
+    email_on_assignment = models.BooleanField(
+        default=True,
+        help_text='Receive email when training is assigned to you'
+    )
+    email_on_reminder = models.BooleanField(
+        default=True,
+        help_text='Receive reminder emails'
+    )
+    
+    # In-app notifications
+    notify_on_enrollment = models.BooleanField(
+        default=True,
+        help_text='Show notification when enrolled in a course'
+    )
+    notify_on_completion = models.BooleanField(
+        default=True,
+        help_text='Show notification when you complete a course'
+    )
+    notify_on_certificate = models.BooleanField(
+        default=True,
+        help_text='Show notification when a certificate is issued'
+    )
+    notify_on_assignment = models.BooleanField(
+        default=True,
+        help_text='Show notification when training is assigned to you'
+    )
+    notify_on_reminder = models.BooleanField(
+        default=True,
+        help_text='Show reminder notifications'
+    )
+    notify_on_announcement = models.BooleanField(
+        default=True,
+        help_text='Show announcement notifications'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Notification Preference'
+        verbose_name_plural = 'Notification Preferences'
+    
+    def __str__(self):
+        return f"{self.user.username}'s Notification Preferences"
+# =============================================================================
+# Step 2: Create form for notification settings
+# Create new file: ProTrack/dashboard/forms.py (or add to existing)
+# =============================================================================
+
 
 # Create your models here.
