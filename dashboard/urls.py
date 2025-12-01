@@ -54,7 +54,11 @@ urlpatterns = [
     path('training/archive/', views.archive_training, name='archive_training'),
     path('dashboard/training/archived/', views.archived_courses, name='archived_courses'),
     path('training/restore/<int:course_id>/', views.restore_course, name='restore_course'),
-
+    path('training/course/<int:course_id>/upload/', views.upload_material, name='upload_material'),
+    path('training/material/<int:material_id>/delete/', views.delete_material, name='delete_material'),
+    path('certificate/<int:certificate_id>/download/', views.download_certificate, name='download_certificate'),
+    path('training/course/<int:course_id>/download-all/', views.download_all_materials, name='download_all_materials'),
+    
     # Admin: Quiz Management
     path('admin/quizzes/material/<int:material_id>/manage/', views.manage_quiz, name='manage_quiz'),
 
@@ -65,4 +69,5 @@ urlpatterns = [
     path('api/notifications/mark-all-read/', views.mark_all_read, name='mark_all_read'),
     path('api/notifications/<int:notification_id>/delete/', views.delete_notification, name='delete_notification'),
     path('settings/notifications/', views.notification_settings, name='notification_settings'),
+
 ]
