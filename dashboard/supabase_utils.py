@@ -1,7 +1,5 @@
 """Supabase Storage Utilities for ProTrack
-
-Handles file uploads to Supabase Storage buckets: profilepic and Uploadfiles
-"""
+Handles file uploads to Supabase Storage buckets: profilepic and Uploadfiles"""
 
 import os
 import requests
@@ -10,14 +8,20 @@ import mimetypes
 from decouple import config
 import time
 
-
 class SupabaseStorage:
     """Handle file operations with Supabase Storage"""
     
-    def __init__(self):
+    def __init__(self, use_service_key=False):
         # Load from environment variables using decouple
         self.supabase_url = config('SUPABASE_URL', default='').strip().rstrip('/')
-        self.supabase_key = config('SUPABASE_KEY', default='').strip()
+        
+        # Use service key for admin operations, anon key for user operations
+        if use_service_key:
+            self.supabase_key = config('SUPABASE_SERVICE_KEY', 
+                                      default=config('SUPABASE_KEY', default='')).strip()
+            print("🔐 Using Supabase Service Key for admin upload")
+        else:
+            self.supabase_key = config('SUPABASE_KEY', default='').strip()
         
         if self.supabase_url and self.supabase_key:
             print(f"✓ Supabase configured: {self.supabase_url[:30]}...")
@@ -64,7 +68,6 @@ class SupabaseStorage:
                     error_msg = response.json().get('message', 'Delete failed')
                 except:
                     error_msg = f'Delete failed with status {response.status_code}'
-                
                 print(f"✗ Delete failed: {error_msg}")
                 return False, error_msg
                 
@@ -191,7 +194,6 @@ class SupabaseStorage:
                     error_msg = response.json().get('message', 'List failed')
                 except:
                     error_msg = f'List failed with status {response.status_code}'
-                
                 return False, [], error_msg
                 
         except Exception as e:
@@ -211,7 +213,7 @@ def upload_profile_picture(user_id: int, file) -> Tuple[bool, str, Optional[str]
     Returns:
         Tuple of (success: bool, url: str, error: Optional[str])
     """
-    storage = SupabaseStorage()
+    storage = SupabaseStorage(use_service_key=False)  # Use anon key for user uploads
     
     # Get file extension
     file_extension = os.path.splitext(file.name)[1].lower()
@@ -225,7 +227,7 @@ def upload_profile_picture(user_id: int, file) -> Tuple[bool, str, Optional[str]
     timestamp = int(time.time())
     file_path = f"user_{user_id}/profile_{timestamp}{file_extension}"
     
-    print(f"🚀 Uploading profile picture for user {user_id}")
+    print(f"🖼️ Uploading profile picture for user {user_id}")
     
     # Try to delete old profile pictures for this user (cleanup)
     # This is optional but helps manage storage
@@ -255,11 +257,11 @@ def upload_training_material(course_id: int, file) -> Tuple[bool, str, Optional[
     Returns:
         Tuple of (success: bool, url: str, error: Optional[str])
     """
-    storage = SupabaseStorage()
+    # 🔐 USE SERVICE KEY FOR ADMIN UPLOADS
+    storage = SupabaseStorage(use_service_key=True)
     
     # Keep original filename but make it safe
     safe_filename = file.name.replace(' ', '_').replace('(', '').replace(')', '')
-    
     file_path = f"course_{course_id}/{safe_filename}"
     
     print(f"🚀 Uploading training material for course {course_id}")
@@ -277,7 +279,7 @@ def delete_training_material(file_url: str) -> Tuple[bool, Optional[str]]:
     Returns:
         Tuple of (success: bool, error: Optional[str])
     """
-    storage = SupabaseStorage()
+    storage = SupabaseStorage(use_service_key=True)
     
     # Extract bucket and path from URL
     # URL format: https://xxx.supabase.co/storage/v1/object/public/Uploadfiles/course_1/file.pdf
@@ -305,8 +307,7 @@ def upload_certificate(enrollment_id: int, pdf_file) -> Tuple[bool, str, Optiona
     Returns:
         Tuple of (success: bool, url: str, error: Optional[str])
     """
-    storage = SupabaseStorage()
-    
+    storage = SupabaseStorage(use_service_key=True)
     file_path = f"certificates/enrollment_{enrollment_id}.pdf"
     
     print(f"🚀 Uploading certificate for enrollment {enrollment_id}")

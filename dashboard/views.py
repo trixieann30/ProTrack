@@ -1,7 +1,7 @@
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta
-
+import mimetypes
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -14,12 +14,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-
 from accounts.models import CustomUser
 from training.models import TrainingModule
 from accounts.models import NotificationPreference
 from accounts.forms import NotificationPreferenceForm
-
+import os
 from .models import (
     Certificate,
     Enrollment,
@@ -34,6 +33,9 @@ from .models import (
     TrainingSession,
 )
 
+from django.http import JsonResponse, FileResponse, Http404
+from django.views.decorators.http import require_http_methods
+from .supabase_utils import upload_training_material, delete_training_material
 
 def is_superuser(user):
     return user.is_superuser
@@ -1451,8 +1453,8 @@ def notification_settings(request):
     
     return render(request, 'dashboard/notification_settings.html', context)
 
-    @login_required
-    def debug_notification_preferences(request):
+@login_required
+def debug_notification_preferences(request):
         """Debug view to check notification preferences"""
         from accounts.models import NotificationPreference
         
@@ -1482,3 +1484,335 @@ def notification_settings(request):
         }
         
         return JsonResponse(debug_info, json_dumps_params={'indent': 2})
+        # File Upload View
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def upload_material(request, course_id):
+            """
+            Upload training material to Supabase storage
+            Admin only - US-05
+            """
+            try:
+                course = get_object_or_404(TrainingCourse, id=course_id)
+                
+                # Validate file exists
+                if 'file' not in request.FILES:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'No file provided'
+                    }, status=400)
+                
+                uploaded_file = request.FILES['file']
+                
+                # Validate file size (50MB)
+                MAX_SIZE = 50 * 1024 * 1024
+                if uploaded_file.size > MAX_SIZE:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'File size exceeds 50MB limit (got {uploaded_file.size / (1024*1024):.1f}MB)'
+                    }, status=400)
+                
+                # Validate file type
+                allowed_extensions = {
+                    'document': ['.pdf', '.doc', '.docx', '.txt'],
+                    'video': ['.mp4', '.avi', '.mov', '.wmv'],
+                    'presentation': ['.ppt', '.pptx'],
+                    'quiz': ['.json', '.xml'],
+                    'other': ['.zip', '.rar']
+                }
+                
+                material_type = request.POST.get('material_type', 'document')
+                file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+                
+                valid_extensions = allowed_extensions.get(material_type, [])
+                if valid_extensions and file_ext not in valid_extensions:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Invalid file type for {material_type}. Allowed: {", ".join(valid_extensions)}'
+                    }, status=400)
+                
+                # Upload to Supabase
+                success, file_url, error = upload_training_material(course_id, uploaded_file)
+                
+                if not success:
+                    return JsonResponse({
+                        'success': False,
+                        'error': error or 'Upload failed'
+                    }, status=500)
+                
+                # Create TrainingMaterial record
+                material = TrainingMaterial.objects.create(
+                    course=course,
+                    title=request.POST.get('title', uploaded_file.name),
+                    description=request.POST.get('description', ''),
+                    material_type=material_type,
+                    file_url=file_url,
+                    file_name=uploaded_file.name,
+                    file_size=uploaded_file.size,
+                    uploaded_by=request.user,
+                    is_required=request.POST.get('is_required') == 'on',
+                    order=int(request.POST.get('order', 0))
+                )
+                
+                # Create notifications for enrolled users
+                enrollments = Enrollment.objects.filter(
+                    course=course,
+                    status__in=['enrolled', 'in_progress']
+                )
+                
+                for enrollment in enrollments:
+                    Notification.objects.create(
+                        user=enrollment.user,
+                        notification_type='announcement',
+                        title=f'New Material: {material.title}',
+                        message=f'New {material_type} material has been added to {course.title}',
+                        link=reverse('dashboard:course_detail', args=[course.id])
+                    )
+                
+                messages.success(request, f'Successfully uploaded {uploaded_file.name}')
+                
+                return JsonResponse({
+                    'success': True,
+                    'material_id': material.id,
+                    'file_url': file_url,
+                    'message': 'File uploaded successfully'
+                })
+                
+            except Exception as e:
+                logger.error(f"Upload error: {str(e)}", exc_info=True)
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                }, status=500)
+
+
+        # Delete Material View
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def delete_material(request, material_id):
+            """
+            Delete training material from Supabase and database
+            Admin only - US-05
+            """
+            try:
+                material = get_object_or_404(TrainingMaterial, id=material_id)
+                course_id = material.course.id
+                
+                # Delete from Supabase
+                success, error = delete_training_material(material.file_url)
+                
+                if not success:
+                    logger.warning(f"Failed to delete file from Supabase: {error}")
+                    # Continue anyway to delete from database
+                
+                # Delete from database
+                material_title = material.title
+                material.delete()
+                
+                messages.success(request, f'Deleted material: {material_title}')
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Material deleted successfully'
+                })
+                
+            except Exception as e:
+                logger.error(f"Delete error: {str(e)}", exc_info=True)
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e)
+                }, status=500)
+
+
+        # Certificate Generation and Download
+@login_required
+def download_certificate(request, certificate_id):
+            """
+            Generate and download certificate PDF
+            US-05: Certificate Download
+            """
+            try:
+                certificate = get_object_or_404(
+                    Certificate.objects.select_related('enrollment__user', 'enrollment__course'),
+                    id=certificate_id
+                )
+                
+                # Check permissions
+                if not (request.user.is_superuser or certificate.enrollment.user == request.user):
+                    raise PermissionDenied("You don't have permission to download this certificate")
+                
+                # Check certificate status
+                if certificate.status != 'issued':
+                    messages.warning(request, 'Certificate is not yet issued')
+                    return redirect('dashboard:certifications')
+                
+                # If certificate URL exists, redirect to it
+                if certificate.certificate_url:
+                    return redirect(certificate.certificate_url)
+                
+                # Generate certificate PDF if not exists
+                pdf_buffer = generate_certificate_pdf(certificate)
+                
+                if pdf_buffer:
+                    # Create response
+                    response = FileResponse(
+                        pdf_buffer,
+                        content_type='application/pdf',
+                        as_attachment=True,
+                        filename=f'certificate_{certificate.certificate_number}.pdf'
+                    )
+                    return response
+                else:
+                    messages.error(request, 'Failed to generate certificate')
+                    return redirect('dashboard:certifications')
+                    
+            except Certificate.DoesNotExist:
+                raise Http404("Certificate not found")
+            except Exception as e:
+                logger.error(f"Certificate download error: {str(e)}", exc_info=True)
+                messages.error(request, 'Failed to download certificate')
+                return redirect('dashboard:certifications')
+
+def generate_certificate_pdf(certificate):
+            """
+            Generate a certificate PDF using ReportLab
+            Returns a BytesIO buffer containing the PDF
+            """
+            try:
+                from reportlab.lib.pagesizes import letter, landscape
+                from reportlab.lib.units import inch
+                from reportlab.pdfgen import canvas
+                from reportlab.lib import colors
+                from reportlab.lib.styles import getSampleStyleSheet
+                from reportlab.platypus import Paragraph
+                from io import BytesIO
+                from datetime import datetime
+                
+                buffer = BytesIO()
+                
+                # Create PDF in landscape mode
+                c = canvas.Canvas(buffer, pagesize=landscape(letter))
+                width, height = landscape(letter)
+                
+                # Draw border
+                c.setStrokeColor(colors.HexColor('#667eea'))
+                c.setLineWidth(3)
+                c.rect(0.5*inch, 0.5*inch, width-inch, height-inch)
+                
+                # Draw inner border
+                c.setStrokeColor(colors.HexColor('#764ba2'))
+                c.setLineWidth(1)
+                c.rect(0.75*inch, 0.75*inch, width-1.5*inch, height-1.5*inch)
+                
+                # Title
+                c.setFont("Helvetica-Bold", 48)
+                c.setFillColor(colors.HexColor('#667eea'))
+                c.drawCentredString(width/2, height-2*inch, "CERTIFICATE")
+                
+                c.setFont("Helvetica", 24)
+                c.setFillColor(colors.black)
+                c.drawCentredString(width/2, height-2.5*inch, "OF COMPLETION")
+                
+                # Recipient name
+                c.setFont("Helvetica", 18)
+                c.drawCentredString(width/2, height-3.5*inch, "This is to certify that")
+                
+                c.setFont("Helvetica-Bold", 32)
+                c.setFillColor(colors.HexColor('#764ba2'))
+                user_name = certificate.enrollment.user.get_full_name() or certificate.enrollment.user.username
+                c.drawCentredString(width/2, height-4.2*inch, user_name)
+                
+                # Course details
+                c.setFont("Helvetica", 16)
+                c.setFillColor(colors.black)
+                c.drawCentredString(width/2, height-5*inch, "has successfully completed")
+                
+                c.setFont("Helvetica-Bold", 20)
+                c.setFillColor(colors.HexColor('#667eea'))
+                c.drawCentredString(width/2, height-5.6*inch, certificate.enrollment.course.title)
+                
+                # Date and certificate number
+                c.setFont("Helvetica", 12)
+                c.setFillColor(colors.black)
+                
+                date_str = certificate.issue_date.strftime("%B %d, %Y")
+                c.drawString(2*inch, 1.5*inch, f"Date: {date_str}")
+                c.drawString(width-4*inch, 1.5*inch, f"Certificate No: {certificate.certificate_number}")
+                
+                # Signature line
+                c.setLineWidth(1)
+                c.line(width/2 - 2*inch, 2*inch, width/2 + 2*inch, 2*inch)
+                c.drawCentredString(width/2, 1.7*inch, "Authorized Signature")
+                
+                # Footer
+                c.setFont("Helvetica-Oblique", 10)
+                c.setFillColor(colors.grey)
+                c.drawCentredString(width/2, 0.8*inch, "ProTrack - Skills & Training Management System")
+                
+                c.save()
+                buffer.seek(0)
+                return buffer
+                
+            except Exception as e:
+                logger.error(f"PDF generation error: {str(e)}", exc_info=True)
+                return None
+
+
+        # Bulk download materials (optional)
+@login_required
+def download_all_materials(request, course_id):
+            """
+            Download all course materials as a ZIP file
+            """
+            try:
+                course = get_object_or_404(TrainingCourse, id=course_id)
+                
+                # Check enrollment
+                is_enrolled = Enrollment.objects.filter(
+                    user=request.user,
+                    course=course
+                ).exists()
+                
+                if not (request.user.is_superuser or is_enrolled):
+                    raise PermissionDenied("You must be enrolled in this course")
+                
+                materials = course.materials.all()
+                
+                if not materials:
+                    messages.warning(request, 'No materials available for download')
+                    return redirect('dashboard:course_detail', course_id=course_id)
+                
+                # Create ZIP file
+                import zipfile
+                from io import BytesIO
+                import requests
+                
+                zip_buffer = BytesIO()
+                
+                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    for material in materials:
+                        try:
+                            # Download file from Supabase
+                            response = requests.get(material.file_url, timeout=30)
+                            if response.status_code == 200:
+                                zip_file.writestr(material.file_name, response.content)
+                        except Exception as e:
+                            logger.error(f"Failed to add {material.file_name}: {str(e)}")
+                
+                zip_buffer.seek(0)
+                
+                response = FileResponse(
+                    zip_buffer,
+                    content_type='application/zip',
+                    as_attachment=True,
+                    filename=f'{course.title}_materials.zip'
+                )
+                
+                return response
+                
+            except Exception as e:
+                logger.error(f"Bulk download error: {str(e)}", exc_info=True)
+                messages.error(request, 'Failed to download materials')
+                return redirect('dashboard:course_detail', course_id=course_id)
