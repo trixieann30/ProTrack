@@ -39,6 +39,13 @@ from .models import (
 from django.http import JsonResponse, FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 from .supabase_utils import upload_training_material, delete_training_material
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from io import BytesIO
+import uuid
+from django.http import HttpResponse
 
 def is_superuser(user):
     return user.is_superuser
@@ -308,7 +315,6 @@ def certifications(request):
     """Display user's certificates (US-09)"""
     user = request.user
     
-    # Get user's certificates through their completed enrollments
     if user.is_superuser:
         # Admins see all certificates
         certificates = Certificate.objects.select_related(
@@ -316,21 +322,30 @@ def certifications(request):
             'enrollment__course',
             'issued_by'
         ).order_by('-issue_date')
+        
+        # Count pending certificates for admin notification
+        pending_count = certificates.filter(status='draft').count()
+        
     else:
-        # Regular users see only their own certificates
+        # Regular users see only their issued certificates
         certificates = Certificate.objects.filter(
-            enrollment__user=user
+            enrollment__user=user,
+            status='issued'  # Only show issued certificates to users
         ).select_related(
             'enrollment__course',
             'issued_by'
         ).order_by('-issue_date')
+        
+        pending_count = 0
     
     context = {
         'certificates': certificates,
         'user': user,
+        'pending_count': pending_count,  # NEW: For admin notification
     }
     
     return render(request, 'dashboard/certifications.html', context)
+
 
 
 # ============ TRAINING VIEWS ============
@@ -971,62 +986,102 @@ def mark_material_complete(request, enrollment_id, material_id):
     """Mark a training material as complete for an enrollment."""
     enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
     material = get_object_or_404(TrainingMaterial, id=material_id, course=enrollment.course)
-
+    
     # Add material to completed set
     enrollment.completed_materials.add(material)
-
+    
     # Recalculate progress
     total_materials = enrollment.course.materials.count()
     if total_materials > 0:
         completed_count = enrollment.completed_materials.count()
         progress = round((completed_count / total_materials) * 100)
         enrollment.progress_percentage = progress
-    
-    # Check for course completion
-    if enrollment.progress_percentage == 100 and enrollment.status != 'completed':
-        enrollment.mark_completed()
         
-        # Generate certificate
-        certificate, created = Certificate.objects.get_or_create(
-            enrollment=enrollment,
-            defaults={
-                'certificate_number': f'CERT-{enrollment.id}-{timezone.now().year}',
-                'issue_date': timezone.now().date(),
-                'status': 'draft',  # Set initial status to draft for admin approval
-                'issued_by': request.user
-            }
-        )
-        
-        if created:
-            messages.success(request, f"Congratulations! You have completed {enrollment.course.title} and earned a certificate.")
+        # Check for course completion
+        if enrollment.progress_percentage == 100 and enrollment.status != 'completed':
+            enrollment.mark_completed()
+            
+            # FIXED: Generate certificate immediately with proper status
+            certificate, created = Certificate.objects.get_or_create(
+                enrollment=enrollment,
+                defaults={
+                    'certificate_number': f'CERT-{enrollment.id}-{timezone.now().year}-{uuid.uuid4().hex[:8].upper()}',
+                    'issue_date': timezone.now().date(),
+                    'status': 'draft',  # Start as draft, admin must approve
+                }
+            )
+            
+            if created:
+                # Notify user about completion
+                Notification.objects.create(
+                    user=enrollment.user,
+                    notification_type='completion',
+                    title='Course Completed!',
+                    message=f'Congratulations! You have completed "{enrollment.course.title}". Your certificate is pending approval.',
+                    link=reverse('dashboard:certifications')
+                )
+                
+                # Notify admins about pending certificate
+                admins = CustomUser.objects.filter(is_superuser=True)
+                for admin in admins:
+                    Notification.objects.create(
+                        user=admin,
+                        notification_type='system',
+                        title='Certificate Pending Approval',
+                        message=f'{enrollment.user.get_full_name() or enrollment.user.username} completed "{enrollment.course.title}" and needs certificate approval.',
+                        link=reverse('dashboard:certifications')
+                    )
+                
+                messages.success(request, f"Congratulations! You have completed {enrollment.course.title}. Your certificate is pending approval.")
+            else:
+                messages.info(request, f"You have completed {enrollment.course.title}.")
         else:
-            messages.info(request, f"You have completed {enrollment.course.title}. Your certificate is available.")
-    else:
-        messages.success(request, f'Successfully marked "{material.title}" as complete.')
-    
-    enrollment.save()
+            messages.success(request, f'Successfully marked "{material.title}" as complete.')
+        
+        enrollment.save()
     
     return redirect('dashboard:course_detail', course_id=enrollment.course.id)
-
-
 @login_required
 @user_passes_test(is_superuser)
 def approve_certificate(request, certificate_id):
-    """Admin view to approve a certificate and set an expiry date."""
+    """Admin view to approve a certificate and generate PDF."""
     if request.method == 'POST':
         certificate = get_object_or_404(Certificate, id=certificate_id)
-        expiry_date = request.POST.get('expiry_date')
+        expiry_date_str = request.POST.get('expiry_date')
         
-        certificate.status = 'issued'
-        if expiry_date:
-            certificate.expiry_date = expiry_date
+        try:
+            # Set expiry date if provided
+            if expiry_date_str:
+                certificate.expiry_date = expiry_date_str
+            
+            # Generate PDF and upload to Supabase
+            pdf_success, pdf_url = generate_and_upload_certificate(certificate)
+            
+            if pdf_success:
+                # Update certificate status
+                certificate.status = 'issued'
+                certificate.certificate_url = pdf_url
+                certificate.issued_by = request.user
+                certificate.save()
+                
+                # Create notification for user
+                Notification.create_certificate_notification(certificate)
+                
+                messages.success(
+                    request,
+                    f'Certificate approved and issued to {certificate.enrollment.user.username}'
+                )
+            else:
+                messages.error(request, 'Failed to generate certificate PDF')
         
-        certificate.save()
-        messages.success(request, 'Certificate approved successfully.')
+        except Exception as e:
+            messages.error(request, f'Error approving certificate: {str(e)}')
+            import traceback
+            print(traceback.format_exc())
+        
         return redirect('dashboard:certifications')
     
     return redirect('dashboard:certifications')
-
 
 @login_required
 @user_passes_test(is_superuser)
@@ -1632,137 +1687,228 @@ def delete_material(request, material_id):
         # Certificate Generation and Download
 @login_required
 def download_certificate(request, certificate_id):
-            """
-            Generate and download certificate PDF
-            US-05: Certificate Download
-            """
-            try:
-                certificate = get_object_or_404(
-                    Certificate.objects.select_related('enrollment__user', 'enrollment__course'),
-                    id=certificate_id
-                )
-                
-                # Check permissions
-                if not (request.user.is_superuser or certificate.enrollment.user == request.user):
-                    raise PermissionDenied("You don't have permission to download this certificate")
-                
-                # Check certificate status
-                if certificate.status != 'issued':
-                    messages.warning(request, 'Certificate is not yet issued')
-                    return redirect('dashboard:certifications')
-                
-                # If certificate URL exists, redirect to it
-                if certificate.certificate_url:
-                    return redirect(certificate.certificate_url)
-                
-                # Generate certificate PDF if not exists
-                pdf_buffer = generate_certificate_pdf(certificate)
-                
-                if pdf_buffer:
-                    # Create response
-                    response = FileResponse(
-                        pdf_buffer,
-                        content_type='application/pdf',
-                        as_attachment=True,
-                        filename=f'certificate_{certificate.certificate_number}.pdf'
-                    )
-                    return response
-                else:
-                    messages.error(request, 'Failed to generate certificate')
-                    return redirect('dashboard:certifications')
-                    
-            except Certificate.DoesNotExist:
-                raise Http404("Certificate not found")
-            except Exception as e:
-                logger.error(f"Certificate download error: {str(e)}", exc_info=True)
-                messages.error(request, 'Failed to download certificate')
-                return redirect('dashboard:certifications')
+    """
+    Download certificate PDF
+    """
+    try:
+        certificate = get_object_or_404(
+            Certificate.objects.select_related('enrollment__user', 'enrollment__course'),
+            id=certificate_id
+        )
+        
+        # Check permissions
+        if not (request.user.is_superuser or certificate.enrollment.user == request.user):
+            raise PermissionDenied("You don't have permission to download this certificate")
+        
+        # Check certificate status
+        if certificate.status != 'issued':
+            messages.warning(request, 'Certificate is not yet issued')
+            return redirect('dashboard:certifications')
+        
+        # If certificate URL exists, redirect to it
+        if certificate.certificate_url:
+            return redirect(certificate.certificate_url)
+        
+        # Generate certificate PDF if not exists
+        pdf_success, pdf_url = generate_and_upload_certificate(certificate)
+        
+        if pdf_success:
+            certificate.certificate_url = pdf_url
+            certificate.save()
+            return redirect(pdf_url)
+        else:
+            messages.error(request, 'Failed to generate certificate')
+            return redirect('dashboard:certifications')
+    
+    except Certificate.DoesNotExist:
+        raise Http404("Certificate not found")
+    except Exception as e:
+        print(f"Certificate download error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        messages.error(request, 'Failed to download certificate')
+        return redirect('dashboard:certifications')
+def generate_and_upload_certificate(certificate):
+    """
+    Generate certificate PDF and upload to Supabase
+    Returns: (success: bool, url: str)
+    """
+    try:
+        # Generate PDF
+        pdf_buffer = generate_certificate_pdf(certificate)
+        if not pdf_buffer:
+            print("Failed to generate PDF buffer")
+            return False, None
+        
+        # Upload to Supabase
+        from .supabase_utils import upload_certificate
+        
+        # Convert BytesIO to file-like object with name
+        pdf_buffer.name = f"certificate_{certificate.certificate_number}.pdf"
+        pdf_buffer.seek(0)
+        
+        success, url, error = upload_certificate(
+            certificate.enrollment.id,
+            pdf_buffer
+        )
+        
+        if success:
+            print(f"✓ Certificate uploaded successfully: {url}")
+            return True, url
+        else:
+            print(f"✗ Failed to upload certificate: {error}")
+            return False, None
+    
+    except Exception as e:
+        print(f"✗ Certificate generation error: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return False, None
 
+# IMPROVED: Better PDF certificate design
 def generate_certificate_pdf(certificate):
-            """
-            Generate a certificate PDF using ReportLab
-            Returns a BytesIO buffer containing the PDF
-            """
-            try:
-                from reportlab.lib.pagesizes import letter, landscape
-                from reportlab.lib.units import inch
-                from reportlab.pdfgen import canvas
-                from reportlab.lib import colors
-                from reportlab.lib.styles import getSampleStyleSheet
-                from reportlab.platypus import Paragraph
-                from io import BytesIO
-                from datetime import datetime
-                
-                buffer = BytesIO()
-                
-                # Create PDF in landscape mode
-                c = canvas.Canvas(buffer, pagesize=landscape(letter))
-                width, height = landscape(letter)
-                
-                # Draw border
-                c.setStrokeColor(colors.HexColor('#667eea'))
-                c.setLineWidth(3)
-                c.rect(0.5*inch, 0.5*inch, width-inch, height-inch)
-                
-                # Draw inner border
-                c.setStrokeColor(colors.HexColor('#764ba2'))
-                c.setLineWidth(1)
-                c.rect(0.75*inch, 0.75*inch, width-1.5*inch, height-1.5*inch)
-                
-                # Title
-                c.setFont("Helvetica-Bold", 48)
-                c.setFillColor(colors.HexColor('#667eea'))
-                c.drawCentredString(width/2, height-2*inch, "CERTIFICATE")
-                
-                c.setFont("Helvetica", 24)
-                c.setFillColor(colors.black)
-                c.drawCentredString(width/2, height-2.5*inch, "OF COMPLETION")
-                
-                # Recipient name
-                c.setFont("Helvetica", 18)
-                c.drawCentredString(width/2, height-3.5*inch, "This is to certify that")
-                
-                c.setFont("Helvetica-Bold", 32)
-                c.setFillColor(colors.HexColor('#764ba2'))
-                user_name = certificate.enrollment.user.get_full_name() or certificate.enrollment.user.username
-                c.drawCentredString(width/2, height-4.2*inch, user_name)
-                
-                # Course details
-                c.setFont("Helvetica", 16)
-                c.setFillColor(colors.black)
-                c.drawCentredString(width/2, height-5*inch, "has successfully completed")
-                
-                c.setFont("Helvetica-Bold", 20)
-                c.setFillColor(colors.HexColor('#667eea'))
-                c.drawCentredString(width/2, height-5.6*inch, certificate.enrollment.course.title)
-                
-                # Date and certificate number
-                c.setFont("Helvetica", 12)
-                c.setFillColor(colors.black)
-                
-                date_str = certificate.issue_date.strftime("%B %d, %Y")
-                c.drawString(2*inch, 1.5*inch, f"Date: {date_str}")
-                c.drawString(width-4*inch, 1.5*inch, f"Certificate No: {certificate.certificate_number}")
-                
-                # Signature line
-                c.setLineWidth(1)
-                c.line(width/2 - 2*inch, 2*inch, width/2 + 2*inch, 2*inch)
-                c.drawCentredString(width/2, 1.7*inch, "Authorized Signature")
-                
-                # Footer
-                c.setFont("Helvetica-Oblique", 10)
-                c.setFillColor(colors.grey)
-                c.drawCentredString(width/2, 0.8*inch, "ProTrack - Skills & Training Management System")
-                
-                c.save()
-                buffer.seek(0)
-                return buffer
-                
-            except Exception as e:
-                logger.error(f"PDF generation error: {str(e)}", exc_info=True)
-                return None
-
-
+    """
+    Generate a professional certificate PDF using ReportLab
+    Returns a BytesIO buffer containing the PDF
+    """
+    try:
+        buffer = BytesIO()
+        
+        # Create PDF in landscape mode
+        c = canvas.Canvas(buffer, pagesize=landscape(letter))
+        width, height = landscape(letter)
+        
+        # =====================================================
+        # MODERN CERTIFICATE DESIGN
+        # =====================================================
+        
+        # Draw outer border (gold)
+        c.setStrokeColor(colors.HexColor('#C9A961'))
+        c.setLineWidth(6)
+        c.roundRect(0.4*inch, 0.4*inch, width-0.8*inch, height-0.8*inch, 15)
+        
+        # Draw inner border (blue)
+        c.setStrokeColor(colors.HexColor('#667eea'))
+        c.setLineWidth(3)
+        c.roundRect(0.6*inch, 0.6*inch, width-1.2*inch, height-1.2*inch, 10)
+        
+        # =====================================================
+        # TITLE SECTION
+        # =====================================================
+        
+        # Main title "CERTIFICATE"
+        c.setFont("Helvetica-Bold", 60)
+        c.setFillColor(colors.HexColor('#667eea'))
+        c.drawCentredString(width/2, height-2*inch, "CERTIFICATE")
+        
+        # Subtitle "OF COMPLETION"
+        c.setFont("Helvetica", 24)
+        c.setFillColor(colors.black)
+        c.drawCentredString(width/2, height-2.5*inch, "OF COMPLETION")
+        
+        # Decorative line
+        c.setStrokeColor(colors.HexColor('#764ba2'))
+        c.setLineWidth(2)
+        c.line(width/2 - 3.5*inch, height-2.8*inch, width/2 + 3.5*inch, height-2.8*inch)
+        
+        # =====================================================
+        # RECIPIENT SECTION
+        # =====================================================
+        
+        # "This is to certify that"
+        c.setFont("Helvetica", 16)
+        c.setFillColor(colors.black)
+        c.drawCentredString(width/2, height-3.6*inch, "This is to certify that")
+        
+        # Recipient name (gold and bold)
+        c.setFont("Helvetica-Bold", 40)
+        c.setFillColor(colors.HexColor('#764ba2'))
+        user_name = certificate.enrollment.user.get_full_name() or certificate.enrollment.user.username
+        c.drawCentredString(width/2, height-4.3*inch, user_name)
+        
+        # =====================================================
+        # COURSE SECTION
+        # =====================================================
+        
+        # "has successfully completed the course"
+        c.setFont("Helvetica", 15)
+        c.setFillColor(colors.black)
+        c.drawCentredString(width/2, height-5*inch, "has successfully completed the course")
+        
+        # Course title (blue and bold)
+        c.setFont("Helvetica-Bold", 26)
+        c.setFillColor(colors.HexColor('#667eea'))
+        course_title = certificate.enrollment.course.title
+        
+        # Handle long course titles
+        if len(course_title) > 50:
+            words = course_title.split()
+            mid = len(words) // 2
+            line1 = ' '.join(words[:mid])
+            line2 = ' '.join(words[mid:])
+            c.drawCentredString(width/2, height-5.6*inch, line1)
+            c.drawCentredString(width/2, height-6*inch, line2)
+            info_y_position = height-6.7*inch
+        else:
+            c.drawCentredString(width/2, height-5.6*inch, course_title)
+            info_y_position = height-6.3*inch
+        
+        # Course details (duration and instructor)
+        c.setFont("Helvetica", 13)
+        c.setFillColor(colors.HexColor('#666666'))
+        course_info = f"Duration: {certificate.enrollment.course.duration_hours} hours | Instructor: {certificate.enrollment.course.instructor}"
+        c.drawCentredString(width/2, info_y_position, course_info)
+        
+        # =====================================================
+        # SIGNATURE AND DATES SECTION
+        # =====================================================
+        
+        # Signature line
+        c.setStrokeColor(colors.black)
+        c.setLineWidth(1)
+        c.line(width/2 - 2*inch, 2.5*inch, width/2 + 2*inch, 2.5*inch)
+        
+        
+        
+        # Issued by name (if available)
+        if certificate.issued_by:
+            c.setFont("Helvetica-Bold", 11)
+            c.drawCentredString(width/2, 1.95*inch, 
+                certificate.issued_by.get_full_name() or certificate.issued_by.username)
+        
+        # Date issued (left side)
+        c.setFont("Helvetica-Bold", 11)
+        c.setFillColor(colors.black)
+        date_str = certificate.issue_date.strftime("%B %d, %Y")
+        c.drawString(1.5*inch, 1.6*inch, f"Date Issued: {date_str}")
+        
+        # Certificate number (right side)
+        c.drawRightString(width-1.5*inch, 1.6*inch, f"Certificate No: {certificate.certificate_number}")
+        
+        # =====================================================
+        # FOOTER
+        # =====================================================
+        
+        # System name
+        c.setFont("Helvetica-Oblique", 11)
+        c.setFillColor(colors.grey)
+        c.drawCentredString(width/2, 1*inch, "ProTrack - Skills & Training Management System")
+        
+        # Verification text
+        c.setFont("Helvetica-Oblique", 9)
+        c.drawCentredString(width/2, 0.7*inch, 
+            "This certificate verifies successful completion of the training program")
+        
+        # Save and return
+        c.save()
+        buffer.seek(0)
+        return buffer
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"PDF generation error: {str(e)}", exc_info=True)
+        return None
         # Bulk download materials (optional)
 @login_required
 def download_all_materials(request, course_id):

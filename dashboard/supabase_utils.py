@@ -7,6 +7,8 @@ from typing import Optional, Tuple
 import mimetypes
 from decouple import config
 import time
+from io import BytesIO
+
 
 class SupabaseStorage:
     """Handle file operations with Supabase Storage"""
@@ -26,8 +28,8 @@ class SupabaseStorage:
         if self.supabase_url and self.supabase_key:
             print(f"✓ Supabase configured: {self.supabase_url[:30]}...")
         else:
-            print("✗ Supabase credentials missing!")
-            
+            print("❌ Supabase credentials missing!")
+        
         self.storage_url = f"{self.supabase_url}/storage/v1"
     
     def _get_headers(self):
@@ -68,12 +70,12 @@ class SupabaseStorage:
                     error_msg = response.json().get('message', 'Delete failed')
                 except:
                     error_msg = f'Delete failed with status {response.status_code}'
-                print(f"✗ Delete failed: {error_msg}")
+                print(f"❌ Delete failed: {error_msg}")
                 return False, error_msg
                 
         except Exception as e:
             error_msg = str(e)
-            print(f"✗ Exception during delete: {error_msg}")
+            print(f"❌ Exception during delete: {error_msg}")
             return False, error_msg
     
     def upload_file(self, file, bucket_name: str, file_path: str, upsert: bool = False) -> Tuple[bool, str, Optional[str]]:
@@ -81,7 +83,7 @@ class SupabaseStorage:
         Upload a file to Supabase Storage
         
         Args:
-            file: Django UploadedFile object
+            file: Django UploadedFile object or BytesIO buffer
             bucket_name: Name of the bucket ('profilepic' or 'Uploadfiles')
             file_path: Path within the bucket (e.g., 'user_123/profile.jpg')
             upsert: If True, will overwrite existing file
@@ -93,8 +95,12 @@ class SupabaseStorage:
             return False, '', 'Supabase credentials not configured'
         
         try:
-            # Get content type
-            content_type = file.content_type or mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
+            # ✅ FIX: Get content type from file object or use default
+            if hasattr(file, 'content_type'):
+                content_type = file.content_type
+            else:
+                # Default to application/pdf for BytesIO objects
+                content_type = mimetypes.guess_type(getattr(file, 'name', 'file.pdf'))[0] or 'application/pdf'
             
             # Upload URL with upsert parameter if needed
             upload_url = f"{self.storage_url}/object/{bucket_name}/{file_path}"
@@ -127,7 +133,7 @@ class SupabaseStorage:
             if response.status_code in [200, 201]:
                 # Get public URL
                 public_url = f"{self.supabase_url}/storage/v1/object/public/{bucket_name}/{file_path}"
-                print(f"✓ Upload successful: {public_url}")
+                print(f"✅ Upload successful: {public_url}")
                 return True, public_url, None
             else:
                 try:
@@ -136,16 +142,16 @@ class SupabaseStorage:
                 except:
                     error_msg = f'Upload failed with status {response.status_code}: {response.text[:200]}'
                 
-                print(f"✗ Upload failed: {error_msg}")
+                print(f"❌ Upload failed: {error_msg}")
                 return False, '', error_msg
                 
         except requests.exceptions.Timeout:
             error_msg = 'Upload timeout - please try again'
-            print(f"✗ {error_msg}")
+            print(f"❌ {error_msg}")
             return False, '', error_msg
         except Exception as e:
             error_msg = str(e)
-            print(f"✗ Exception during upload: {error_msg}")
+            print(f"❌ Exception during upload: {error_msg}")
             return False, '', error_msg
     
     def get_public_url(self, bucket_name: str, file_path: str) -> str:
@@ -201,7 +207,6 @@ class SupabaseStorage:
 
 
 # Helper functions for specific use cases
-
 def upload_profile_picture(user_id: int, file) -> Tuple[bool, str, Optional[str]]:
     """
     Upload a profile picture to the profilepic bucket
@@ -227,10 +232,9 @@ def upload_profile_picture(user_id: int, file) -> Tuple[bool, str, Optional[str]
     timestamp = int(time.time())
     file_path = f"user_{user_id}/profile_{timestamp}{file_extension}"
     
-    print(f"🖼️ Uploading profile picture for user {user_id}")
+    print(f"📸 Uploading profile picture for user {user_id}")
     
     # Try to delete old profile pictures for this user (cleanup)
-    # This is optional but helps manage storage
     try:
         old_files_success, old_files, _ = storage.list_files('profilepic', f'user_{user_id}/')
         if old_files_success and old_files:
@@ -264,7 +268,7 @@ def upload_training_material(course_id: int, file) -> Tuple[bool, str, Optional[
     safe_filename = file.name.replace(' ', '_').replace('(', '').replace(')', '')
     file_path = f"course_{course_id}/{safe_filename}"
     
-    print(f"🚀 Uploading training material for course {course_id}")
+    print(f"📚 Uploading training material for course {course_id}")
     
     return storage.upload_file(file, 'Uploadfiles', file_path)
 
@@ -302,7 +306,7 @@ def upload_certificate(enrollment_id: int, pdf_file) -> Tuple[bool, str, Optiona
     
     Args:
         enrollment_id: Enrollment ID
-        pdf_file: Django UploadedFile object or file-like object
+        pdf_file: Django UploadedFile object or BytesIO buffer
         
     Returns:
         Tuple of (success: bool, url: str, error: Optional[str])
@@ -312,4 +316,10 @@ def upload_certificate(enrollment_id: int, pdf_file) -> Tuple[bool, str, Optiona
     
     print(f"🚀 Uploading certificate for enrollment {enrollment_id}")
     
-    return storage.upload_file(pdf_file, 'Uploadfiles', file_path)
+    # ✅ FIX: Handle BytesIO objects by adding missing attributes
+    if isinstance(pdf_file, BytesIO):
+        # Add missing attributes that upload_file expects
+        pdf_file.content_type = 'application/pdf'
+        pdf_file.name = f'enrollment_{enrollment_id}.pdf'
+    
+    return storage.upload_file(pdf_file, 'Uploadfiles', file_path, upsert=True)
