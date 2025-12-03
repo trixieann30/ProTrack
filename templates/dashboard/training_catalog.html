@@ -277,10 +277,14 @@
             <div class="course-card">
                 <div class="course-thumbnail">
                     {% if course.thumbnail %}
-                        <img src="{{ course.thumbnail.url }}" alt="{{ course.title }}" class="img-fluid">
+                        <img src="{{ course.thumbnail }}" alt="{{ course.title }}" 
+                            style="width: 100%; height: 100%; object-fit: cover;">
+                    {% elif course.category.icon %}
+                        <i class="fas {{ course.category.icon }}"></i>
                     {% else %}
-                        <i class="fas {{ course.category.icon|default:'fa-book' }}"></i>
+                        <i class="fas fa-book"></i>
                     {% endif %}
+                    
                     <span class="course-level-badge {{ course.level|lower }}">
                         {{ course.get_level_display }}
                     </span>
