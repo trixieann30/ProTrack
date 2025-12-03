@@ -62,7 +62,12 @@ class TrainingCourse(models.Model):
     prerequisites = models.TextField(blank=True, help_text='Required knowledge or courses')
     learning_outcomes = models.TextField(help_text='What participants will learn')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
-    thumbnail = models.ImageField(upload_to='training_thumbnails/', blank=True, null=True)
+    thumbnail = models.URLField(
+    max_length=500, 
+    blank=True, 
+    null=True,
+    help_text='URL to course thumbnail in Supabase storage'
+)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_courses')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

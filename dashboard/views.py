@@ -81,22 +81,26 @@ def user_dashboard(request):
     if user.is_superuser:
         return redirect('dashboard:admin_dashboard')
     
-    # Get user's enrollments
+    # Get user's enrollments with fresh data
     enrollments = Enrollment.objects.filter(user=user).select_related('course', 'session')
     
-    # Active enrollments (in progress)
-    active_enrollments = enrollments.filter(status__in=['enrolled', 'in_progress']).order_by('-enrolled_date')[:5]
+    # Active enrollments (in progress) - exclude cancelled
+    active_enrollments = enrollments.filter(
+        status__in=['enrolled', 'in_progress']
+    ).order_by('-enrolled_date')[:5]
     
     # Completed enrollments
     completed_enrollments = enrollments.filter(status='completed')
     
-    # Statistics
-    total_enrollments = enrollments.count()
+    # Statistics - REAL-TIME CALCULATION
+    total_enrollments = enrollments.exclude(status='cancelled').count()  # Exclude cancelled
     in_progress_count = enrollments.filter(status='in_progress').count()
     completed_count = completed_enrollments.count()
     
     # Calculate completion rate
-    completion_rate = round((completed_count / total_enrollments * 100), 1) if total_enrollments > 0 else 0
+    completion_rate = 0
+    if total_enrollments > 0:
+        completion_rate = round((completed_count / total_enrollments * 100), 1)
     
     # Total hours completed
     total_hours = completed_enrollments.aggregate(
@@ -104,10 +108,10 @@ def user_dashboard(request):
     )['total'] or 0
     
     # Average score
-    avg_score = completed_enrollments.filter(
+    avg_score_result = completed_enrollments.filter(
         score__isnull=False
-    ).aggregate(Avg('score'))['score__avg']
-    avg_score = round(avg_score, 1) if avg_score else 0
+    ).aggregate(Avg('score'))
+    avg_score = round(avg_score_result['score__avg'], 1) if avg_score_result['score__avg'] else 0
     
     # Recent certificates
     recent_certificates = Certificate.objects.filter(
@@ -184,7 +188,6 @@ def user_dashboard(request):
     }
     
     return render(request, 'dashboard/user_dashboard.html', context)
-
 
 @login_required
 def dashboard(request):
@@ -461,7 +464,7 @@ def enroll_course(request, course_id):
         if request.user.is_superuser:
             messages.error(request, 'Administrators cannot enroll in courses.')
             return redirect('dashboard:course_detail', course_id=course_id)
-
+        
         course = get_object_or_404(TrainingCourse, id=course_id)
         session_id = request.POST.get('session_id')
         
@@ -470,37 +473,57 @@ def enroll_course(request, course_id):
             messages.error(request, 'This course is currently full.')
             return redirect('dashboard:course_detail', course_id=course_id)
         
-        # Check if already enrolled
+        # Check if already enrolled (only active enrollments)
         existing_enrollment = Enrollment.objects.filter(
             user=request.user,
             course=course,
-            status__in=['pending', 'enrolled', 'in_progress']
+            status__in=['enrolled', 'in_progress', 'pending']  # Removed 'cancelled'
         ).first()
         
         if existing_enrollment:
             messages.warning(request, 'You are already enrolled in this course.')
             return redirect('dashboard:my_training')
         
-        # Create enrollment
-        session = None
-        if session_id:
-            session = TrainingSession.objects.filter(id=session_id).first()
-        
-        enrollment = Enrollment.objects.create(
+        # Check for cancelled enrollment and reactivate or create new
+        cancelled_enrollment = Enrollment.objects.filter(
             user=request.user,
             course=course,
-            session=session,
-            status='enrolled'
-        )
+            status='cancelled'
+        ).first()
         
-        # CREATE NOTIFICATION - THIS IS NEW
+        if cancelled_enrollment:
+            # Reactivate cancelled enrollment
+            cancelled_enrollment.status = 'enrolled'
+            cancelled_enrollment.enrolled_date = timezone.now()
+            cancelled_enrollment.start_date = None
+            cancelled_enrollment.completion_date = None
+            cancelled_enrollment.progress_percentage = 0
+            cancelled_enrollment.score = None
+            if session_id:
+                cancelled_enrollment.session = TrainingSession.objects.filter(id=session_id).first()
+            cancelled_enrollment.save()
+            enrollment = cancelled_enrollment
+            messages.success(request, f'Successfully re-enrolled in {course.title}!')
+        else:
+            # Create new enrollment
+            session = None
+            if session_id:
+                session = TrainingSession.objects.filter(id=session_id).first()
+            
+            enrollment = Enrollment.objects.create(
+                user=request.user,
+                course=course,
+                session=session,
+                status='enrolled'
+            )
+            messages.success(request, f'Successfully enrolled in {course.title}!')
+        
+        # CREATE NOTIFICATION
         Notification.create_enrollment_notification(enrollment)
         
-        messages.success(request, f'Successfully enrolled in {course.title}!')
         return redirect('dashboard:my_training')
     
     return redirect('dashboard:training_catalog')
-
 
 @login_required
 def my_training(request):
@@ -570,42 +593,128 @@ def cancel_enrollment(request, enrollment_id):
 
 @login_required
 def take_quiz(request, quiz_id):
+    """Take a quiz and calculate score"""
     quiz = get_object_or_404(Quiz, id=quiz_id)
     questions = quiz.questions.all().prefetch_related('choices')
-
+    
+    # Get user's enrollment for this course
+    enrollment = get_object_or_404(
+        Enrollment,
+        user=request.user,
+        course=quiz.material.course,
+        status__in=['enrolled', 'in_progress']
+    )
+    
     if request.method == 'POST':
         score = 0
         total_questions = questions.count()
-
+        
+        if total_questions == 0:
+            messages.error(request, 'This quiz has no questions.')
+            return redirect('dashboard:course_detail', course_id=quiz.material.course.id)
+        
+        # Create quiz attempt
+        quiz_attempt = QuizAttempt.objects.create(
+            enrollment=enrollment,
+            quiz=quiz,
+            score=0  # Will update after calculation
+        )
+        
+        # Grade each question
         for question in questions:
             user_answer = request.POST.get(f'question_{question.id}')
-            if user_answer:
-                if question.question_type == 'multiple_choice':
-                    selected_choice = get_object_or_404(Choice, id=user_answer)
+            
+            if not user_answer:
+                continue  # Skip unanswered questions
+            
+            is_correct = False
+            
+            if question.question_type == 'multiple_choice':
+                try:
+                    selected_choice = Choice.objects.get(id=user_answer)
                     if selected_choice.is_correct:
                         score += 1
-                else:
-                    if user_answer.strip().lower() == question.correct_answer.strip().lower():
-                        score += 1
-
-        percentage_score = (score / total_questions) * 100 if total_questions > 0 else 0
-
-        # Save the quiz attempt
-        QuizAttempt.objects.create(
-            user=request.user,
-            quiz=quiz,
-            score=percentage_score
-        )
-
-        messages.success(request, f'You have completed the quiz. Your score is {percentage_score:.2f}%.')
-        return redirect('dashboard:course_detail', course_id=quiz.material.course.id)  # Corrected syntax error here
-
+                        is_correct = True
+                    
+                    # Save answer
+                    Answer.objects.create(
+                        attempt=quiz_attempt,
+                        question=question,
+                        choice=selected_choice
+                    )
+                except Choice.DoesNotExist:
+                    pass
+            
+            elif question.question_type == 'true_false':
+                if user_answer.strip().lower() == question.correct_answer.strip().lower():
+                    score += 1
+                    is_correct = True
+                
+                # Save answer
+                Answer.objects.create(
+                    attempt=quiz_attempt,
+                    question=question,
+                    text_answer=user_answer
+                )
+            
+            elif question.question_type in ['fill_in_the_blanks', 'identification']:
+                # Case-insensitive comparison, strip whitespace
+                if user_answer.strip().lower() == question.correct_answer.strip().lower():
+                    score += 1
+                    is_correct = True
+                
+                # Save answer
+                Answer.objects.create(
+                    attempt=quiz_attempt,
+                    question=question,
+                    text_answer=user_answer
+                )
+        
+        # Calculate percentage
+        percentage_score = round((score / total_questions) * 100, 2) if total_questions > 0 else 0
+        
+        # Update quiz attempt
+        quiz_attempt.score = percentage_score
+        quiz_attempt.save()
+        
+        # Update enrollment score
+        enrollment.score = percentage_score
+        enrollment.save()
+        
+        # Check if passed
+        passed = percentage_score >= quiz.pass_mark
+        
+        if passed:
+            messages.success(
+                request,
+                f'Congratulations! You passed with {percentage_score}% (Pass mark: {quiz.pass_mark}%). Score: {score}/{total_questions}'
+            )
+            
+            # Mark material as complete
+            enrollment.completed_materials.add(quiz.material)
+            
+            # Update progress
+            total_materials = enrollment.course.materials.count()
+            if total_materials > 0:
+                completed_count = enrollment.completed_materials.count()
+                progress = round((completed_count / total_materials) * 100)
+                enrollment.progress_percentage = progress
+                enrollment.save()
+        else:
+            messages.warning(
+                request,
+                f'You scored {percentage_score}% (Pass mark: {quiz.pass_mark}%). Score: {score}/{total_questions}. Please try again to improve your score.'
+            )
+        
+        return redirect('dashboard:course_detail', course_id=quiz.material.course.id)
+    
+    # GET request - show quiz
     context = {
         'quiz': quiz,
         'questions': questions,
+        'enrollment': enrollment,
     }
     return render(request, 'dashboard/take_quiz.html', context)
-
 @login_required
 @user_passes_test(is_superuser)
 def manage_quiz(request, material_id):
@@ -665,39 +774,68 @@ def manage_quiz(request, material_id):
 def edit_course(request, course_id):
     """Admin view to edit an existing training course."""
     course = get_object_or_404(TrainingCourse, id=course_id)
-
+    
     if request.method == 'POST':
-        title = request.POST.get('title')
-        description = request.POST.get('description')
-        instructor = request.POST.get('instructor')
-        duration_hours = request.POST.get('duration_hours')
-        level = request.POST.get('level')
+        # Handle text fields
+        course.title = request.POST.get('title')
+        course.description = request.POST.get('description')
+        course.instructor = request.POST.get('instructor')
+        course.duration_hours = request.POST.get('duration_hours')
+        course.level = request.POST.get('level')
+        course.status = request.POST.get('status', 'active')
+        
+        # Handle category
         category_id = request.POST.get('category')
-        status = request.POST.get('status', 'active')
-
-        category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
-
-        course.title = title
-        course.description = description
-        course.instructor = instructor
-        course.duration_hours = duration_hours
-        course.level = level
-        course.category = category
-        course.status = status
+        if category_id:
+            course.category = TrainingCategory.objects.filter(id=category_id).first()
+        
+        # Handle thumbnail upload
+        if 'thumbnail' in request.FILES:
+            uploaded_file = request.FILES['thumbnail']
+            
+            # Validate file type
+            allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+            file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+            
+            if file_ext not in allowed_extensions:
+                messages.error(request, f'Invalid file type. Allowed: {", ".join(allowed_extensions)}')
+                return redirect('dashboard:edit_course', course_id=course.id)
+            
+            # Upload to Supabase
+            try:
+                from .supabase_utils import SupabaseStorage
+                storage = SupabaseStorage(use_service_key=True)
+                
+                # Create file path
+                import time
+                timestamp = int(time.time())
+                file_path = f"course_thumbnails/course_{course.id}_{timestamp}{file_ext}"
+                
+                # Upload file
+                success, url, error = storage.upload_file(uploaded_file, 'Uploadfiles', file_path, upsert=True)
+                
+                if success:
+                    course.thumbnail = url
+                    messages.success(request, 'Course thumbnail updated successfully!')
+                else:
+                    messages.error(request, f'Failed to upload thumbnail: {error}')
+            except Exception as e:
+                messages.error(request, f'Error uploading thumbnail: {str(e)}')
+        
         course.save()
-
-        messages.success(request, f'Course "{title}" updated successfully.')
+        messages.success(request, f'Course "{course.title}" updated successfully.')
         return redirect('dashboard:course_detail', course_id=course.id)
-
+    
+    # GET request
     categories = TrainingCategory.objects.all()
     level_choices = TrainingCourse.LEVEL_CHOICES
+    
     context = {
         'course': course,
         'categories': categories,
         'level_choices': level_choices,
     }
     return render(request, 'dashboard/edit_course.html', context)
-
 @user_passes_test(is_superuser)
 def assign_training(request):
     """Admin view to add a new task (TrainingMaterial) to a course."""
