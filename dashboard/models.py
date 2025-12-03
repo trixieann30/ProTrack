@@ -554,8 +554,8 @@ class Notification(models.Model):
             from accounts.models import NotificationPreference
             prefs, _ = NotificationPreference.objects.get_or_create(user=user)
         
-        title = 'Certificate Issued'
-        message = f'A certificate has been issued for "{course.title}".'
+        title = 'Certificate Issued! 🎓'
+        message = f'Your certificate for "{course.title}" has been approved and is now available for download.'
         link = certificate.certificate_url or reverse('dashboard:certifications')
         
         # Create in-app notification if enabled
@@ -569,18 +569,43 @@ class Notification(models.Model):
                 link=link,
                 related_certificate=certificate,
             )
+            print(f"✅ Certificate notification created for {user.username}")
         
         # Send email if enabled
         if prefs.email_on_certificate:
             try:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                email_message = f"""
+    Congratulations {user.get_full_name() or user.username}!
+
+    Your certificate for "{course.title}" has been officially issued and approved.
+
+    Certificate Details:
+    - Certificate Number: {certificate.certificate_number}
+    - Course: {course.title}
+    - Issue Date: {certificate.issue_date.strftime('%B %d, %Y')}
+    - Duration: {course.duration_hours} hours
+
+    You can download your certificate at:
+    {settings.SITE_URL}{link}
+
+    Congratulations on your achievement!
+
+    Best regards,
+    The ProTrack Team
+    """
+                
                 send_mail(
                     subject=f'ProTrack: {title}',
-                    message=f'{message}\n\nDownload: {settings.SITE_URL}{link}',
+                    message=email_message,
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[user.email],
                     fail_silently=True,
                 )
+                print(f"✅ Certificate email sent to {user.email}")
             except Exception as e:
-                print(f"Failed to send email: {e}")
+                print(f"❌ Failed to send certificate email: {e}")
         
         return notification
