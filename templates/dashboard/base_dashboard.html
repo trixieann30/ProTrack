@@ -497,27 +497,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Mark all as read silently (without reloading)
     function markAllAsReadSilently() {
         fetch('/dashboard/api/notifications/mark-all-read/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Hide the badge immediately
-                notificationCount.style.display = 'none';
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                const ct = response.headers.get('content-type') || '';
+                if (ct.includes('application/json')) return response.json();
+                window.location.reload();
+            })
+            .then(data => {
+                if (data && data.success) {
+                    // Hide the badge immediately
+                    notificationCount.style.display = 'none';
                 
-                // Update all notifications to show as read
-                document.querySelectorAll('.notification-item.unread').forEach(item => {
-                    item.classList.remove('unread');
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error marking notifications as read:', error);
-        });
+                    // Update all notifications to show as read
+                    document.querySelectorAll('.notification-item.unread').forEach(item => {
+                        item.classList.remove('unread');
+                    });
+                }
+            })
+            .catch(err => console.error('Error marking all read:', err));
     }
     
     // Render notifications
