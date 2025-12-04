@@ -12,7 +12,12 @@ from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.urls import reverse
 from dashboard.supabase_utils import upload_profile_picture
+from django.core.files.base import ContentFile
+from PIL import Image
+from io import BytesIO
+import base64
 import logging
+
 def register(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
@@ -99,73 +104,64 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def edit_profile(request):
-    """Edit user profile with Supabase image upload support"""
-    user_instance = request.user
-    profile_instance, created = UserProfile.objects.get_or_create(user=user_instance)
-    
-    if request.method == 'POST':
-        form = UserProfileForm(request.POST, request.FILES, instance=profile_instance)
-        
-        if form.is_valid():
-            # --- 1. Handle profile picture upload to Supabase ---
-            if form.cleaned_data.get('profile_picture'):
-                uploaded_file = form.cleaned_data['profile_picture']
-                try:
-                    logger.info(f"Starting upload for user {user_instance.id}")
-                    
-                    # Upload to Supabase
-                    success, url, error = upload_profile_picture(user_instance.id, uploaded_file)
-                    
-                    if success:
-                        # Store the URL in the profile_picture_url field
-                        user_instance.profile_picture_url = url
-                        logger.info(f"✅ Profile picture uploaded: {url}")
-                        messages.success(request, 'Profile picture uploaded successfully!')
-                    else:
-                        logger.error(f"❌ Upload failed: {error}")
-                        messages.error(request, f'Failed to upload image: {error}')
-                        return redirect('accounts:edit_profile')
-                        
-                except Exception as e:
-                    logger.error(f"❌ Exception: {str(e)}")
-                    messages.error(request, f'Error uploading image: {str(e)}')
-                    return redirect('accounts:edit_profile')
-            
-            # --- 2. Save other CustomUser fields ---
-            user_instance.first_name = form.cleaned_data['first_name']
-            user_instance.last_name = form.cleaned_data['last_name']
-            user_instance.phone_number = form.cleaned_data['phone_number']
-            user_instance.department = form.cleaned_data['department']
-            user_instance.position = form.cleaned_data['position']
-            user_instance.date_of_birth = form.cleaned_data['date_of_birth']
-            
-            # Save user instance
-            user_instance.save()
-            
-            # --- 3. Save UserProfile fields ---
-            form.save()
-            
-            messages.success(request, 'Your profile has been updated!')
-            return redirect('accounts:profile')
-    else:
-        # GET request - initialize form
-        initial_data = {
-            'first_name': user_instance.first_name,
-            'last_name': user_instance.last_name,
-            'phone_number': user_instance.phone_number,
-            'department': user_instance.department,
-            'position': user_instance.position,
-            'date_of_birth': user_instance.date_of_birth,
-        }
-        form = UserProfileForm(initial=initial_data, instance=profile_instance)
-    
-    return render(request, 'accounts/edit_profile.html', {'form': form})
-def custom_logout(request):
-    logout(request)
-    messages.success(request, 'You have been successfully logged out.')
-    return redirect('home')
+    user = request.user
+    profile, created = UserProfile.objects.get_or_create(user=user)
 
-logger = logging.getLogger(__name__)
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, request.FILES, instance=profile)
+
+        if form.is_valid():
+            # 1. HANDLE CROPPED PROFILE PICTURE (base64 from frontend)
+            cropped_data = request.POST.get('cropped_image_data')
+            if cropped_data:
+                try:
+                    format, imgstr = cropped_data.split(';base64,')  # "data:image/png;base64,..."
+                    ext = format.split('/')[-1]  # png, jpeg, etc.
+                    data = ContentFile(base64.b64decode(imgstr), name=f"profile_{user.id}.{ext}")
+
+                    # Upload to Supabase
+                    success, url, error = upload_profile_picture(user.id, data)
+
+                    if success:
+                        user.profile_picture_url = url
+                        user.save()
+                        messages.success(request, "Profile picture updated!")
+                    else:
+                        messages.error(request, f"Upload failed: {error}")
+                        return redirect('accounts:edit_profile')
+
+                except Exception as e:
+                    messages.error(request, f"Error processing image: {str(e)}")
+                    return redirect('accounts:edit_profile')
+
+            # 2. SAVE CUSTOMUSER FIELDS
+            user.first_name = form.cleaned_data['first_name']
+            user.last_name = form.cleaned_data['last_name']
+            user.phone_number = form.cleaned_data['phone_number']
+            user.department = form.cleaned_data['department']
+            user.position = form.cleaned_data['position']
+            user.date_of_birth = form.cleaned_data['date_of_birth']
+            user.save()
+
+            # 3. SAVE USERPROFILE FIELDS
+            form.save()
+
+            messages.success(request, "Your profile has been updated!")
+            return redirect('accounts:profile')
+
+    else:
+        # Pre-populate CustomUser values
+        initial_data = {
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone_number': user.phone_number,
+            'department': user.department,
+            'position': user.position,
+            'date_of_birth': user.date_of_birth,
+        }
+        form = UserProfileForm(initial=initial_data, instance=profile)
+
+    return render(request, 'accounts/edit_profile.html', {'form': form})
 
 @login_required
 def send_verification_email(request):
@@ -254,63 +250,8 @@ logger = logging.getLogger(__name__)
 logger = logging.getLogger(__name__)
 
 @login_required
-def edit_profile(request):
-    """Edit user profile with Supabase image upload support"""
-    user_instance = request.user
-    profile_instance, created = UserProfile.objects.get_or_create(user=user_instance)
-    
-    if request.method == 'POST':
-        form = UserProfileForm(request.POST, request.FILES, instance=profile_instance)
-        
-        if form.is_valid():
-            # --- 1. Handle profile picture upload to Supabase ---
-            if form.cleaned_data.get('profile_picture'):
-                uploaded_file = form.cleaned_data['profile_picture']
-                try:
-                    # Upload to Supabase
-                    success, url, error = upload_profile_picture(user_instance.id, uploaded_file)
-                    
-                    if success:
-                        # Store the URL in the profile_picture_url field
-                        user_instance.profile_picture_url = url
-                        logger.info(f"Profile picture uploaded successfully: {url}")
-                        messages.success(request, 'Profile picture uploaded successfully!')
-                    else:
-                        logger.error(f"Supabase upload failed: {error}")
-                        messages.error(request, f'Failed to upload image: {error}')
-                        return redirect('accounts:edit_profile')
-                        
-                except Exception as e:
-                    logger.error(f"Error uploading to Supabase: {str(e)}")
-                    messages.error(request, f'Error uploading image: {str(e)}')
-                    return redirect('accounts:edit_profile')
-            
-            # --- 2. Save other CustomUser fields ---
-            user_instance.first_name = form.cleaned_data['first_name']
-            user_instance.last_name = form.cleaned_data['last_name']
-            user_instance.phone_number = form.cleaned_data['phone_number']
-            user_instance.department = form.cleaned_data['department']
-            user_instance.position = form.cleaned_data['position']
-            user_instance.date_of_birth = form.cleaned_data['date_of_birth']
-            
-            # Save the user instance
-            user_instance.save()
-            
-            # --- 3. Save UserProfile fields ---
-            form.save()
-            
-            messages.success(request, 'Your profile has been updated!')
-            return redirect('accounts:profile')
-    else:
-        # GET request - initialize form
-        initial_data = {
-            'first_name': user_instance.first_name,
-            'last_name': user_instance.last_name,
-            'phone_number': user_instance.phone_number,
-            'department': user_instance.department,
-            'position': user_instance.position,
-            'date_of_birth': user_instance.date_of_birth,
-        }
-        form = UserProfileForm(initial=initial_data, instance=profile_instance)
-    
-    return render(request, 'accounts/edit_profile.html', {'form': form})
+def custom_logout(request):
+    """Logout the user and redirect to home page"""
+    logout(request)
+    messages.success(request, "You have been successfully logged out.")
+    return redirect('home')

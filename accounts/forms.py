@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import authenticate
 from .models import CustomUser, UserProfile
+from django.core.exceptions import ValidationError
 
 class UserRegistrationForm(UserCreationForm):
     # Exclude 'admin' from registration choices - only Employee and Student can register
@@ -52,30 +53,42 @@ class UserLoginForm(AuthenticationForm):
     )
 
 class UserProfileForm(forms.ModelForm):
-    # --- Fields from CustomUser Model (Manually Defined) ---
-    first_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    last_name = forms.CharField(max_length=30, required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    phone_number = forms.CharField(max_length=15, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    department = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    position = forms.CharField(max_length=100, required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    # --- CustomUser fields ---
+    first_name = forms.CharField(required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    last_name = forms.CharField(required=True, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    phone_number = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    department = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    position = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
     date_of_birth = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}))
-    
-    # CRITICAL: This is the file input field
+
+    # --- File upload input (NOT part of model) ---
     profile_picture = forms.ImageField(
-        required=False, 
+        required=False,
         label='Profile Picture',
         widget=forms.FileInput(attrs={'class': 'form-control'})
     )
 
     class Meta:
         model = UserProfile
-        # --- Fields from UserProfile Model (Inherited) ---
-        fields = ['bio', 'skills', 'certifications'] 
+        fields = ['bio', 'skills', 'certifications']
         widgets = {
             'bio': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'skills': forms.TextInput(attrs={'class': 'form-control'}),
             'certifications': forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+    def clean_profile_picture(self):
+        image = self.cleaned_data.get('profile_picture')
+        if image:
+            # Validate file type
+            if not image.content_type in ['image/jpeg', 'image/png']:
+                raise ValidationError('Only JPEG or PNG images are allowed.')
+
+            # Validate file size (max 5MB)
+            if image.size > 5 * 1024 * 1024:
+                raise ValidationError('Image file too large (max 5MB).')
+        return image
+    
 from django import forms
 from accounts.models import NotificationPreference
 
