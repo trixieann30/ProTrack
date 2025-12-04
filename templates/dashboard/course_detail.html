@@ -235,61 +235,63 @@
 
                     <!-- Actions -->
                     <div class="btn-group ms-3">
-                    {% if user.is_superuser %}
-                        <!-- Admin Actions -->
-                        {% if material.material_type == 'quiz' and material.quiz %}
-                        <a href="{% url 'dashboard:manage_quiz' material.id %}" 
-                        class="btn btn-sm btn-primary"
-                        title="Manage Quiz">
-                        <i class="fas fa-cogs"></i>
-                        </a>
+                        {% if user.is_superuser %}
+                            <!-- Admin Actions -->
+                            {% if material.material_type == 'quiz' and material.quiz %}
+                                <a href="{% url 'dashboard:manage_quiz' material.id %}" 
+                                class="btn btn-sm btn-primary" 
+                                title="Manage Quiz">
+                                    <i class="fas fa-cogs"></i>
+                                </a>
+                            {% endif %}
+                            
+                            <a href="{{ material.file_url }}" 
+                            target="_blank" 
+                            class="btn btn-sm btn-outline-primary"
+                            download="{{ material.file_name }}">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            
+                            <button class="btn btn-sm btn-outline-danger"
+                                    onclick="deleteMaterial({{ material.id }}, '{{ material.title }}')"
+                                    title="Delete Material">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            
+                        {% elif is_enrolled %}
+                            <!-- Student Actions -->
+                            {% if material.material_type == 'quiz' and material.quiz %}
+                                <a href="{% url 'dashboard:take_quiz' material.quiz.id %}" 
+                                class="btn btn-sm btn-primary">
+                                    <i class="fas fa-pencil-alt me-1"></i>Take Quiz
+                                </a>
+                            {% else %}
+                                <!-- VIEW BUTTON (Primary Action) -->
+                                <a href="{% url 'dashboard:view_material' enrollment.id material.id %}" 
+                                class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye me-1"></i>View
+                                </a>
+                                
+                                <!-- Download Button (Secondary) -->
+                                <a href="{{ material.file_url }}" 
+                                target="_blank" 
+                                class="btn btn-sm btn-outline-secondary"
+                                download="{{ material.file_name }}">
+                                    <i class="fas fa-download me-1"></i>Download
+                                </a>
+                            {% endif %}
+                            
+                            <!-- Completion Status (Read-only) -->
+                            {% if material.id in completed_materials_ids %}
+                                <button type="button" class="btn btn-sm btn-success" disabled>
+                                    <i class="fas fa-check-circle me-1"></i>Completed
+                                </button>
+                            {% else %}
+                                <span class="badge bg-secondary">
+                                    <i class="fas fa-clock me-1"></i>Not Started
+                                </span>
+                            {% endif %}
                         {% endif %}
-                        
-                        <a href="{{ material.file_url }}" 
-                        target="_blank"
-                        class="btn btn-sm btn-outline-primary"
-                        download="{{ material.file_name }}">
-                        <i class="fas fa-download"></i>
-                        </a>
-                        
-                        <button class="btn btn-sm btn-outline-danger" 
-                                onclick="deleteMaterial({{ material.id }}, '{{ material.title }}')"
-                                title="Delete Material">
-                        <i class="fas fa-trash"></i>
-                        </button>
-                        
-                    {% elif is_enrolled %}
-                        <!-- Student Actions -->
-                        {% if material.material_type == 'quiz' and material.quiz %}
-                        <a href="{% url 'dashboard:take_quiz' material.quiz.id %}" 
-                        class="btn btn-sm btn-primary">
-                        <i class="fas fa-pencil-alt me-1"></i>Take Quiz
-                        </a>
-                        {% else %}
-                        <a href="{{ material.file_url }}" 
-                        target="_blank"
-                        class="btn btn-sm btn-primary"
-                        download="{{ material.file_name }}">
-                        <i class="fas fa-download me-1"></i>Download
-                        </a>
-                        {% endif %}
-                        
-                        <!-- Mark Complete Button -->
-                        <form method="post" 
-                            action="{% url 'dashboard:mark_material_complete' enrollment.id material.id %}"
-                            class="d-inline">
-                        {% csrf_token %}
-                        {% if material.id in completed_materials_ids %}
-                        <button type="button" class="btn btn-sm btn-success" disabled>
-                            <i class="fas fa-check-circle me-1"></i>Completed
-                        </button>
-                        {% else %}
-                        <button type="submit" class="btn btn-sm btn-outline-success">
-                            <i class="fas fa-check me-1"></i>Mark Complete
-                        </button>
-                        {% endif %}
-                        </form>
-                    {% endif %}
                     </div>
                 </div>
 
@@ -329,19 +331,32 @@
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json'
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
                 })
-                .then(response => response.json())
-                .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + (data.error || 'Failed to delete material'));
-                }
+                .then(response => {
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        return response.json().then(data => ({ ok: response.ok, data }));
+                    }
+                    // If not JSON (HTML redirect or error page), reload to let the browser handle it
+                    return { ok: response.ok, data: null, nonJson: true };
+                })
+                .then(result => {
+                    if (result.nonJson) {
+                        // Likely a redirect to login or an HTML error page — reload the page
+                        window.location.reload();
+                        return;
+                    }
+                    const data = result.data;
+                    if (data && data.success) {
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data && data.error ? data.error : 'Failed to delete material'));
+                    }
                 })
                 .catch(error => {
-                alert('Network error: ' + error.message);
+                    alert('Network error: ' + error.message);
                 });
             }
             }

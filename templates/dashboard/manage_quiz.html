@@ -34,11 +34,15 @@
                     <h5 class="card-title mb-0">Questions for {{ quiz.title }}</h5>
                 </div>
                 <div class="card-body">
+                    <div class="mb-3 d-flex justify-content-end">
+                        <button id="saveAllBtn" class="btn btn-success">Save Changes</button>
+                    </div>
+
                     {% for question in questions %}
                         <div class="mb-4 border-bottom pb-3">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <strong>{{ forloop.counter }}. {{ question.text }}</strong> ({{ question.get_question_type_display }})
+                                    <strong>{{ forloop.counter }}. <span class="question-preview" data-qid="{{ question.id }}">{{ question.text }}</span></strong> ({{ question.get_question_type_display }})
                                 </div>
                                 <div>
                                     <button class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#editQuestionModal-{{ question.id }}">Edit</button>
@@ -84,25 +88,25 @@
                                         <h5 class="modal-title" id="editQuestionModalLabel-{{ question.id }}">Edit Question</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                     </div>
-                                    <form method="post">
+                                    <form method="post" class="edit-question-form">
                                         {% csrf_token %}
                                         <div class="modal-body">
                                             <input type="hidden" name="action" value="edit_question">
                                             <input type="hidden" name="question_id" value="{{ question.id }}">
                                             <div class="mb-3">
                                                 <label for="text-{{ question.id }}" class="form-label">Question Text</label>
-                                                <textarea id="text-{{ question.id }}" name="text" class="form-control" rows="3" required>{{ question.text }}</textarea>
+                                                <textarea id="text-{{ question.id }}" name="text" class="form-control edit-question-text" rows="3" required>{{ question.text }}</textarea>
                                             </div>
                                             {% if question.question_type != 'multiple_choice' %}
                                                 <div class="mb-3">
                                                     <label for="correct_answer-{{ question.id }}" class="form-label">Correct Answer</label>
                                                     {% if question.question_type == 'true_false' %}
-                                                        <select id="correct_answer-{{ question.id }}" name="correct_answer" class="form-select" required>
+                                                        <select id="correct_answer-{{ question.id }}" name="correct_answer" class="form-select edit-question-correct" required>
                                                             <option value="True" {% if question.correct_answer == 'True' %}selected{% endif %}>True</option>
                                                             <option value="False" {% if question.correct_answer == 'False' %}selected{% endif %}>False</option>
                                                         </select>
                                                     {% else %}
-                                                        <input type="text" id="correct_answer-{{ question.id }}" name="correct_answer" class="form-control" value="{{ question.correct_answer|default:'' }}" required>
+                                                        <input type="text" id="correct_answer-{{ question.id }}" name="correct_answer" class="form-control edit-question-correct" value="{{ question.correct_answer|default:'' }}" required>
                                                     {% endif %}
                                                 </div>
                                             {% endif %}
@@ -149,4 +153,61 @@
         </div>
     </div>
 </div>
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const saveAllBtn = document.getElementById('saveAllBtn');
+    if(!saveAllBtn) return;
+
+    saveAllBtn.addEventListener('click', function(e){
+        e.preventDefault();
+
+        // Build a POST form for bulk save
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '';
+
+        // CSRF token
+        const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrftoken;
+        form.appendChild(csrfInput);
+
+        // action
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'save_all';
+        form.appendChild(actionInput);
+
+        // For each question modal, pull values
+        document.querySelectorAll('.edit-question-form').forEach(function(qform){
+            const qid = qform.querySelector('input[name="question_id"]').value;
+            const textEl = qform.querySelector('.edit-question-text');
+            if(textEl){
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = `question_${qid}_text`;
+                inp.value = textEl.value;
+                form.appendChild(inp);
+            }
+
+            const correctEl = qform.querySelector('.edit-question-correct');
+            if(correctEl){
+                const inp2 = document.createElement('input');
+                inp2.type = 'hidden';
+                inp2.name = `question_${qid}_correct`;
+                inp2.value = correctEl.value;
+                form.appendChild(inp2);
+            }
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    });
+});
+</script>
+{% endblock %}
 {% endblock %}

@@ -146,13 +146,17 @@ function deleteNotification(notifId) {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
             }
-        }).then(response => response.json())
-          .then(data => {
-              if (data.success) {
-                  location.reload();
-              }
-          });
+        })
+        .then(response => {
+            const ct = response.headers.get('content-type') || '';
+            if (ct.includes('application/json')) return response.json();
+            window.location.reload();
+        })
+        .then(data => {
+            if (data && data.success) location.reload();
+        });
     }
 }
 

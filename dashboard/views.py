@@ -30,6 +30,8 @@ from .models import (
     Quiz,
     Question,
     Choice,
+    QuizAttempt,
+    Answer,
     TrainingSession,
 )
 
@@ -155,10 +157,10 @@ def user_dashboard(request):
             'priority': 'high'
         })
     
-    # Check for certificates to claim
+    # Check for certificates to claim (draft = pending approval)
     pending_certificates = Certificate.objects.filter(
         enrollment__user=user,
-        status='pending'
+        status='draft'
     ).count()
     
     if pending_certificates > 0:
@@ -261,7 +263,7 @@ def create_training(request):
         category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
         
         # Create TrainingCourse
-        course = TrainingModule.objects.create(
+        course = TrainingCourse.objects.create(
             title=title,
             description=description,
             instructor=instructor,
@@ -271,6 +273,33 @@ def create_training(request):
             status=status
         )
         
+        # Notify users about new course
+        try:
+            recipients = CustomUser.objects.filter(is_active=True, is_superuser=False)
+            if course.target_programs and course.target_programs != 'ALL':
+                programs = [p.strip() for p in course.target_programs.split(',') if p.strip()]
+                if programs:
+                    recipients = recipients.filter(program__in=programs)
+
+            notified = 0
+            for u in recipients:
+                pref = NotificationPreference.objects.filter(user=u).first()
+                if pref and not getattr(pref, 'notify_on_announcement', True):
+                    continue
+                Notification.objects.create(
+                    user=u,
+                    notification_type='announcement',
+                    title=f'New Course: {course.title}',
+                    message=f'A new course "{course.title}" is now available. Check it out!',
+                    link=reverse('dashboard:course_detail', args=[course.id])
+                )
+                notified += 1
+        except Exception as e:
+            try:
+                logger.warning(f"Failed to send new course notifications: {e}")
+            except Exception:
+                pass
+
         messages.success(request, f'Training "{title}" created successfully.')
         return redirect('dashboard:training_catalog')
     
@@ -327,16 +356,17 @@ def certifications(request):
         pending_count = certificates.filter(status='draft').count()
         
     else:
-        # Regular users see only their issued certificates
+        # Regular users see their issued certificates and any pending (draft) certificates
         certificates = Certificate.objects.filter(
             enrollment__user=user,
-            status='issued'  # Only show issued certificates to users
+            status__in=['issued', 'draft']
         ).select_related(
             'enrollment__course',
             'issued_by'
         ).order_by('-issue_date')
-        
-        pending_count = 0
+
+        # Count user's pending (draft) certificates for UI badges
+        pending_count = certificates.filter(status='draft').count()
     
     context = {
         'certificates': certificates,
@@ -470,11 +500,32 @@ def enroll_course(request, course_id):
             messages.error(request, 'This course is currently full.')
             return redirect('dashboard:course_detail', course_id=course_id)
         
+        # ✅ FIX: Check if user has completed this course (has certificate)
+        completed_enrollment = Enrollment.objects.filter(
+            user=request.user,
+            course=course,
+            status='completed'
+        ).first()
+        
+        if completed_enrollment:
+            # Check if certificate exists
+            has_certificate = Certificate.objects.filter(
+                enrollment=completed_enrollment,
+                status__in=['draft', 'issued']
+            ).exists()
+            
+            if has_certificate:
+                messages.warning(
+                    request, 
+                    'You have already completed this course and have a certificate. You cannot re-enroll.'
+                )
+                return redirect('dashboard:my_training')
+        
         # Check if already enrolled (only active enrollments)
         existing_enrollment = Enrollment.objects.filter(
             user=request.user,
             course=course,
-            status__in=['enrolled', 'in_progress', 'pending']  # Removed 'cancelled'
+            status__in=['enrolled', 'in_progress', 'pending']
         ).first()
         
         if existing_enrollment:
@@ -521,7 +572,6 @@ def enroll_course(request, course_id):
         return redirect('dashboard:my_training')
     
     return redirect('dashboard:training_catalog')
-
 @login_required
 def my_training(request):
     """Display user's enrolled training courses"""
@@ -620,7 +670,6 @@ def take_quiz(request, quiz_id):
         # Grade each question
         for question in questions:
             user_answer = request.POST.get(f'question_{question.id}')
-            
             if not user_answer:
                 continue  # Skip unanswered questions
             
@@ -632,7 +681,6 @@ def take_quiz(request, quiz_id):
                     if selected_choice.is_correct:
                         score += 1
                         is_correct = True
-                    
                     # Save answer
                     Answer.objects.create(
                         attempt=quiz_attempt,
@@ -641,25 +689,23 @@ def take_quiz(request, quiz_id):
                     )
                 except Choice.DoesNotExist:
                     pass
-            
+                    
             elif question.question_type == 'true_false':
                 if user_answer.strip().lower() == question.correct_answer.strip().lower():
                     score += 1
                     is_correct = True
-                
                 # Save answer
                 Answer.objects.create(
                     attempt=quiz_attempt,
                     question=question,
                     text_answer=user_answer
                 )
-            
+                
             elif question.question_type in ['fill_in_the_blanks', 'identification']:
                 # Case-insensitive comparison, strip whitespace
                 if user_answer.strip().lower() == question.correct_answer.strip().lower():
                     score += 1
                     is_correct = True
-                
                 # Save answer
                 Answer.objects.create(
                     attempt=quiz_attempt,
@@ -676,7 +722,6 @@ def take_quiz(request, quiz_id):
         
         # Update enrollment score
         enrollment.score = percentage_score
-        enrollment.save()
         
         # Check if passed
         passed = percentage_score >= quiz.pass_mark
@@ -687,7 +732,7 @@ def take_quiz(request, quiz_id):
                 f'Congratulations! You passed with {percentage_score}% (Pass mark: {quiz.pass_mark}%). Score: {score}/{total_questions}'
             )
             
-            # Mark material as complete
+            # FIX: Mark quiz material as complete
             enrollment.completed_materials.add(quiz.material)
             
             # Update progress
@@ -696,6 +741,45 @@ def take_quiz(request, quiz_id):
                 completed_count = enrollment.completed_materials.count()
                 progress = round((completed_count / total_materials) * 100)
                 enrollment.progress_percentage = progress
+                
+                # FIX: Check for course completion
+                if progress == 100:
+                    enrollment.status = 'completed'
+                    enrollment.completion_date = timezone.now().date()
+                    
+                    # Create draft certificate
+                    certificate, created = Certificate.objects.get_or_create(
+                        enrollment=enrollment,
+                        defaults={
+                            'certificate_number': f'CERT-{enrollment.id}-{timezone.now().year}-{uuid.uuid4().hex[:8].upper()}',
+                            'issue_date': timezone.now().date(),
+                            'status': 'draft',  # Admin must approve
+                        }
+                    )
+                    
+                    if created:
+                        # Notify user
+                        Notification.objects.create(
+                            user=enrollment.user,
+                            notification_type='completion',
+                            title='🎉 Course Completed!',
+                            message=f'Congratulations! You completed "{enrollment.course.title}". Your certificate is pending approval.',
+                            link=reverse('dashboard:certifications')
+                        )
+                        
+                        # Notify admins
+                        admins = CustomUser.objects.filter(is_superuser=True)
+                        for admin in admins:
+                            Notification.objects.create(
+                                user=admin,
+                                notification_type='system',
+                                title='Certificate Pending Approval',
+                                message=f'{enrollment.user.get_full_name() or enrollment.user.username} completed "{enrollment.course.title}"',
+                                link=reverse('dashboard:certifications')
+                            )
+                        
+                        messages.success(request, '🎓 Course completed! Your certificate is pending approval.')
+                
                 enrollment.save()
         else:
             messages.warning(
@@ -711,6 +795,7 @@ def take_quiz(request, quiz_id):
         'questions': questions,
         'enrollment': enrollment,
     }
+    
     return render(request, 'dashboard/take_quiz.html', context)
 @login_required
 @user_passes_test(is_superuser)
@@ -748,6 +833,42 @@ def manage_quiz(request, material_id):
             is_correct = request.POST.get('is_correct') == 'true'
             Choice.objects.create(question=question, text=text, is_correct=is_correct)
             messages.success(request, 'Choice added successfully.')
+
+        elif action == 'save_all':
+            # Bulk update multiple questions at once
+            # Expect POST keys like question_<id>_text and question_<id>_correct
+            for key, value in request.POST.items():
+                if not key.startswith('question_'):
+                    continue
+                # key format: question_<id>_field
+                parts = key.split('_')
+                if len(parts) < 3:
+                    continue
+                try:
+                    qid = int(parts[1])
+                except ValueError:
+                    continue
+                field = '_'.join(parts[2:])
+                try:
+                    question = Question.objects.get(id=qid, quiz=quiz)
+                except Question.DoesNotExist:
+                    continue
+
+                if field == 'text':
+                    question.text = value
+                elif field == 'correct':
+                    # non-multiple choice correct answer
+                    question.correct_answer = value
+
+                question.save()
+
+            messages.success(request, 'All questions saved successfully.')
+            # After bulk save, redirect back to the course page for the material
+            try:
+                return redirect('dashboard:course_detail', course_id=material.course.id)
+            except Exception:
+                # Fallback to manage page if course lookup fails
+                return redirect('dashboard:manage_quiz', material_id=material.id)
 
         else:  # Default action is to add a new question
             text = request.POST.get('text')
@@ -906,7 +1027,7 @@ def create_training(request):
         category = TrainingCategory.objects.filter(id=category_id).first() if category_id else None
 
         # Create the course
-        TrainingModule.objects.create(
+        course = TrainingCourse.objects.create(
             title=title,
             description=description,
             instructor=instructor,
@@ -915,6 +1036,33 @@ def create_training(request):
             category=category,
             status=status
         )
+        # Notify users about new course
+        try:
+            recipients = CustomUser.objects.filter(is_active=True, is_superuser=False)
+            if course.target_programs and course.target_programs != 'ALL':
+                programs = [p.strip() for p in course.target_programs.split(',') if p.strip()]
+                if programs:
+                    recipients = recipients.filter(program__in=programs)
+
+            notified = 0
+            for u in recipients:
+                pref = NotificationPreference.objects.filter(user=u).first()
+                if pref and not getattr(pref, 'notify_on_announcement', True):
+                    continue
+                Notification.objects.create(
+                    user=u,
+                    notification_type='announcement',
+                    title=f'New Course: {course.title}',
+                    message=f'A new course "{course.title}" is now available. Check it out!',
+                    link=reverse('dashboard:course_detail', args=[course.id])
+                )
+                notified += 1
+        except Exception as e:
+            try:
+                logger.warning(f"Failed to send new course notifications: {e}")
+            except Exception:
+                pass
+
         messages.success(request, f'Training "{title}" created successfully.')
         return redirect('dashboard:training_catalog')
 
@@ -1681,103 +1829,148 @@ def debug_notification_preferences(request):
 @login_required
 @user_passes_test(is_superuser)
 @require_http_methods(["POST"])
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
 def upload_material(request, course_id):
-            """
-            Upload training material to Supabase storage
-            Admin only - US-05
-            """
-            try:
-                course = get_object_or_404(TrainingCourse, id=course_id)
-                
-                # Validate file exists
-                if 'file' not in request.FILES:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'No file provided'
-                    }, status=400)
-                
-                uploaded_file = request.FILES['file']
-                
-                # Validate file size (50MB)
-                MAX_SIZE = 50 * 1024 * 1024
-                if uploaded_file.size > MAX_SIZE:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'File size exceeds 50MB limit (got {uploaded_file.size / (1024*1024):.1f}MB)'
-                    }, status=400)
-                
-                # Validate file type
-                allowed_extensions = {
-                    'document': ['.pdf', '.doc', '.docx', '.txt'],
-                    'video': ['.mp4', '.avi', '.mov', '.wmv'],
-                    'presentation': ['.ppt', '.pptx'],
-                    'quiz': ['.json', '.xml'],
-                    'other': ['.zip', '.rar']
-                }
-                
-                material_type = request.POST.get('material_type', 'document')
-                file_ext = os.path.splitext(uploaded_file.name)[1].lower()
-                
-                valid_extensions = allowed_extensions.get(material_type, [])
-                if valid_extensions and file_ext not in valid_extensions:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Invalid file type for {material_type}. Allowed: {", ".join(valid_extensions)}'
-                    }, status=400)
-                
-                # Upload to Supabase
-                success, file_url, error = upload_training_material(course_id, uploaded_file)
-                
-                if not success:
-                    return JsonResponse({
-                        'success': False,
-                        'error': error or 'Upload failed'
-                    }, status=500)
-                
-                # Create TrainingMaterial record
-                material = TrainingMaterial.objects.create(
-                    course=course,
-                    title=request.POST.get('title', uploaded_file.name),
-                    description=request.POST.get('description', ''),
-                    material_type=material_type,
-                    file_url=file_url,
-                    file_name=uploaded_file.name,
-                    file_size=uploaded_file.size,
-                    uploaded_by=request.user,
-                    is_required=request.POST.get('is_required') == 'on',
-                    order=int(request.POST.get('order', 0))
-                )
-                
-                # Create notifications for enrolled users
-                enrollments = Enrollment.objects.filter(
-                    course=course,
-                    status__in=['enrolled', 'in_progress']
-                )
-                
-                for enrollment in enrollments:
-                    Notification.objects.create(
-                        user=enrollment.user,
-                        notification_type='announcement',
-                        title=f'New Material: {material.title}',
-                        message=f'New {material_type} material has been added to {course.title}',
-                        link=reverse('dashboard:course_detail', args=[course.id])
-                    )
-                
-                messages.success(request, f'Successfully uploaded {uploaded_file.name}')
-                
+    """
+    Upload training material to Supabase storage
+    Admin only - US-05
+    """
+    try:
+        course = get_object_or_404(TrainingCourse, id=course_id)
+        
+        material_type = request.POST.get('material_type', 'document')
+        
+        # QUIZ FIX: Quizzes don't need file uploads
+        if material_type == 'quiz':
+            # Create quiz material without file
+            material = TrainingMaterial.objects.create(
+                course=course,
+                title=request.POST.get('title', 'New Quiz'),
+                description=request.POST.get('description', ''),
+                material_type='quiz',
+                file_url='',  # No file for quizzes
+                file_name='quiz.json',
+                file_size=0,
+                uploaded_by=request.user,
+                is_required=request.POST.get('is_required') == 'on',
+                order=int(request.POST.get('order', 0))
+            )
+            
+            # Create Quiz object
+            Quiz.objects.create(
+                material=material,
+                title=material.title,
+                description=material.description,
+                pass_mark=50  # Default pass mark
+            )
+            
+            messages.success(request, f'Quiz "{material.title}" created! Add questions in the Manage Quiz page.')
+            # If this was an AJAX request, return JSON; otherwise redirect to the manage page
+            is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+            if is_ajax:
                 return JsonResponse({
                     'success': True,
                     'material_id': material.id,
-                    'file_url': file_url,
-                    'message': 'File uploaded successfully'
+                    'message': 'Quiz created successfully. Add questions now.',
+                    'redirect': reverse('dashboard:manage_quiz', args=[material.id])
                 })
-                
-            except Exception as e:
-                logger.error(f"Upload error: {str(e)}", exc_info=True)
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                }, status=500)
+            else:
+                return redirect('dashboard:manage_quiz', material.id)
+        
+        # Regular file upload for non-quiz materials
+        if 'file' not in request.FILES:
+            return JsonResponse({
+                'success': False,
+                'error': 'No file provided'
+            }, status=400)
+        
+        uploaded_file = request.FILES['file']
+        
+        # Validate file size (50MB)
+        MAX_SIZE = 50 * 1024 * 1024
+        if uploaded_file.size > MAX_SIZE:
+            return JsonResponse({
+                'success': False,
+                'error': f'File size exceeds 50MB limit (got {uploaded_file.size / (1024*1024):.1f}MB)'
+            }, status=400)
+        
+        # Validate file type
+        allowed_extensions = {
+            'document': ['.pdf', '.doc', '.docx', '.txt'],
+            'video': ['.mp4', '.avi', '.mov', '.wmv'],
+            'presentation': ['.ppt', '.pptx'],
+            'other': ['.zip', '.rar']
+        }
+        
+        file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+        valid_extensions = allowed_extensions.get(material_type, [])
+        
+        if valid_extensions and file_ext not in valid_extensions:
+            return JsonResponse({
+                'success': False,
+                'error': f'Invalid file type for {material_type}. Allowed: {", ".join(valid_extensions)}'
+            }, status=400)
+        
+        # Upload to Supabase
+        success, file_url, error = upload_training_material(course_id, uploaded_file)
+        
+        if not success:
+            return JsonResponse({
+                'success': False,
+                'error': error or 'Upload failed'
+            }, status=500)
+        
+        # Create TrainingMaterial record
+        material = TrainingMaterial.objects.create(
+            course=course,
+            title=request.POST.get('title', uploaded_file.name),
+            description=request.POST.get('description', ''),
+            material_type=material_type,
+            file_url=file_url,
+            file_name=uploaded_file.name,
+            file_size=uploaded_file.size,
+            uploaded_by=request.user,
+            is_required=request.POST.get('is_required') == 'on',
+            order=int(request.POST.get('order', 0))
+        )
+        
+        # Create notifications for enrolled users
+        enrollments = Enrollment.objects.filter(
+            course=course,
+            status__in=['enrolled', 'in_progress']
+        )
+        
+        for enrollment in enrollments:
+            Notification.objects.create(
+                user=enrollment.user,
+                notification_type='announcement',
+                title=f'New Material: {material.title}',
+                message=f'New {material_type} material has been added to {course.title}',
+                link=reverse('dashboard:course_detail', args=[course.id])
+            )
+        
+        messages.success(request, f'Successfully uploaded {uploaded_file.name}')
+
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+        if is_ajax:
+            return JsonResponse({
+                'success': True,
+                'material_id': material.id,
+                'file_url': file_url,
+                'message': 'File uploaded successfully'
+            })
+        else:
+            # For normal form submits, redirect back to the course detail page
+            return redirect('dashboard:course_detail', course_id=course.id)
+        
+    except Exception as e:
+        logger.error(f"Upload error: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
         # Delete Material View
@@ -1792,24 +1985,37 @@ def delete_material(request, material_id):
             try:
                 material = get_object_or_404(TrainingMaterial, id=material_id)
                 course_id = material.course.id
-                
-                # Delete from Supabase
-                success, error = delete_training_material(material.file_url)
-                
-                if not success:
-                    logger.warning(f"Failed to delete file from Supabase: {error}")
-                    # Continue anyway to delete from database
-                
-                # Delete from database
+
+                # If this is a quiz material, attempt to delete the Quiz and related objects first
+                if material.material_type == 'quiz':
+                    try:
+                        quiz_obj = getattr(material, 'quiz', None)
+                        if quiz_obj:
+                            # Deleting the Quiz will cascade to Questions, Choices and Attempts
+                            quiz_obj.delete()
+                    except Exception as e:
+                        logger.warning(f"Failed to delete associated Quiz object: {e}")
+
+                # Delete from Supabase only if a file URL is present
+                if material.file_url:
+                    success, error = delete_training_material(material.file_url)
+                    if not success:
+                        logger.warning(f"Failed to delete file from Supabase: {error}")
+
+                # Delete the TrainingMaterial record
                 material_title = material.title
                 material.delete()
-                
+
                 messages.success(request, f'Deleted material: {material_title}')
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Material deleted successfully'
-                })
+
+                is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Material deleted successfully'
+                    })
+                else:
+                    return redirect('dashboard:course_detail', course_id=course_id)
                 
             except Exception as e:
                 logger.error(f"Delete error: {str(e)}", exc_info=True)
@@ -2100,3 +2306,102 @@ def download_all_materials(request, course_id):
                 logger.error(f"Bulk download error: {str(e)}", exc_info=True)
                 messages.error(request, 'Failed to download materials')
                 return redirect('dashboard:course_detail', course_id=course_id)
+@login_required
+def view_material(request, enrollment_id, material_id):
+    """
+    View a training material in-browser and mark as complete when viewed
+    """
+    enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
+    material = get_object_or_404(TrainingMaterial, id=material_id, course=enrollment.course)
+    
+    # Check if already completed
+    is_completed = material.id in enrollment.completed_materials.values_list('id', flat=True)
+    
+    # Get file type
+    file_extension = os.path.splitext(material.file_name)[1].lower()
+    
+    # Determine if file is viewable
+    viewable_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.mp4', '.webm']
+    is_viewable = file_extension in viewable_extensions
+    
+    context = {
+        'enrollment': enrollment,
+        'material': material,
+        'is_completed': is_completed,
+        'is_viewable': is_viewable,
+        'file_extension': file_extension,
+    }
+    
+    return render(request, 'dashboard/view_material.html', context)
+
+
+@login_required
+@require_POST
+def mark_material_viewed(request, enrollment_id, material_id):
+    """
+    API endpoint to mark material as viewed/complete
+    Called via JavaScript when user has viewed the file
+    """
+    try:
+        enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
+        material = get_object_or_404(TrainingMaterial, id=material_id, course=enrollment.course)
+        
+        # Check if already completed
+        if material.id in enrollment.completed_materials.values_list('id', flat=True):
+            return JsonResponse({'success': True, 'message': 'Already marked as complete'})
+        
+        # Mark as complete
+        enrollment.completed_materials.add(material)
+        
+        # Recalculate progress
+        total_materials = enrollment.course.materials.count()
+        if total_materials > 0:
+            completed_count = enrollment.completed_materials.count()
+            progress = round((completed_count / total_materials) * 100)
+            enrollment.progress_percentage = progress
+            
+            # Check for course completion
+            if progress == 100 and enrollment.status != 'completed':
+                enrollment.mark_completed()
+                
+                # Generate draft certificate
+                certificate, created = Certificate.objects.get_or_create(
+                    enrollment=enrollment,
+                    defaults={
+                        'certificate_number': f'CERT-{enrollment.id}-{timezone.now().year}-{uuid.uuid4().hex[:8].upper()}',
+                        'issue_date': timezone.now().date(),
+                        'status': 'draft',
+                    }
+                )
+                
+                if created:
+                    # Notify user about completion
+                    Notification.objects.create(
+                        user=enrollment.user,
+                        notification_type='completion',
+                        title='Course Completed!',
+                        message=f'Congratulations! You have completed "{enrollment.course.title}". Your certificate is pending approval.',
+                        link=reverse('dashboard:certifications')
+                    )
+                    
+                    # Notify admins
+                    admins = CustomUser.objects.filter(is_superuser=True)
+                    for admin in admins:
+                        Notification.objects.create(
+                            user=admin,
+                            notification_type='system',
+                            title='Certificate Pending Approval',
+                            message=f'{enrollment.user.get_full_name() or enrollment.user.username} completed "{enrollment.course.title}" and needs certificate approval.',
+                            link=reverse('dashboard:certifications')
+                        )
+            
+            enrollment.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Material marked as complete',
+            'progress': enrollment.progress_percentage
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
