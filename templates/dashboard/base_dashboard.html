@@ -435,8 +435,8 @@
 document.addEventListener('DOMContentLoaded', function() {
     const notificationBell = document.getElementById('notificationBell');
     const notificationDropdown = document.getElementById('notificationDropdown');
-    const notificationCount = document.getElementById('notificationCount');
     const notificationList = document.getElementById('notificationList');
+    const notificationCount = document.getElementById('notificationCount');
     const markAllReadBtn = document.getElementById('markAllReadBtn');
     
     let isOpen = false;
@@ -702,27 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{% static 'js/main.js' %}"></script>
-    
     {% block extra_js %}{% endblock %}
-
-    <script>
-        // Fix for Bootstrap modal flickering issue
-        document.addEventListener('DOMContentLoaded', function () {
-            const modals = document.querySelectorAll('.modal');
-            const body = document.body;
-
-            modals.forEach(modal => {
-                modal.addEventListener('show.bs.modal', function () {
-                    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-                    body.style.paddingRight = scrollbarWidth + 'px';
-                });
-
-                modal.addEventListener('hidden.bs.modal', function () {
-                    body.style.paddingRight = '';
-                });
-            });
-        });
-    </script>
+    <script src="{% static 'js/main.js' %}"></script>
 </body>
 </html>

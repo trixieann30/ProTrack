@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 from datetime import datetime, timedelta
 import mimetypes
+import logging
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -19,6 +20,8 @@ from training.models import TrainingModule
 from accounts.models import NotificationPreference
 from accounts.forms import NotificationPreferenceForm
 import os
+
+logger = logging.getLogger(__name__)
 from .models import (
     Certificate,
     Enrollment,
