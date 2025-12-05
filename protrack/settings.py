@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'accounts',
     'dashboard',
     'training',
+    'widget_tweaks',
 ]
 
 SITE_ID = 1

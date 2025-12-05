@@ -6,7 +6,7 @@
 {% block extra_css %}
 <style>
 .settings-container {
-    max-width: 1200px;
+    max-width: device-width;      /* Keep max width */
 }
 
 .page-header {
@@ -178,9 +178,12 @@
 
 {% block content %}
 <div class="settings-container">
-    <div class="page-header">
-        <h1 class="page-title">Settings</h1>
-        <p style="color: #6b7280;">Manage your account settings and preferences</p>
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-gear me-2" style="color: var(--primary-color);"></i>
+            Settings
+        </h2>
+        <p></p>
     </div>
 
     {% if messages %}
