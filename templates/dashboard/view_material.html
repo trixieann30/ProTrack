@@ -145,8 +145,8 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const isCompleted = {{ is_completed|lower }};
-    const isViewable = {{ is_viewable|lower }};
+    const isCompleted = JSON.parse('{{ is_completed|lower }}');
+    const isViewable = JSON.parse('{{ is_viewable|lower }}');
     
     if (!isCompleted && isViewable) {
         // Track viewing time
@@ -191,38 +191,57 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         function markAsComplete() {
+            const csrfToken = getCsrfToken();
+            console.log('CSRF Token found:', csrfToken ? 'Yes' : 'No');
+
             fetch('{% url "dashboard:mark_material_viewed" enrollment.id material.id %}', {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin'
             })
             .then(response => {
+                console.log('Response status:', response.status);
                 const ct = response.headers.get('content-type') || '';
+                console.log('Content type:', ct);
+
                 if (ct.includes('application/json')) {
                     return response.json();
                 }
                 // non-json (HTML) - reload to handle redirects
-                window.location.reload();
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    throw new Error('Server returned HTML error');
+                }
             })
             .then(data => {
+                console.log('Response data:', data);
                 if (data && data.success) {
                     // Show completion banner
                     const banner = document.getElementById('completionBanner');
-                    banner.classList.add('show');
-                    
+                    if (banner) {
+                        banner.classList.add('show');
+                    }
+
                     // Show success message
                     alert('✓ Material marked as complete!\n\nProgress: ' + data.progress + '%');
-                    
+
                     // Optionally redirect back to course
                     setTimeout(function() {
                         window.location.href = '{% url "dashboard:course_detail" enrollment.course.id %}';
                     }, 2000);
+                } else if (data) {
+                    console.error('Server returned error:', data.error);
+                    alert('Error: ' + (data.error || 'Unknown error occurred'));
                 }
             })
             .catch(error => {
                 console.error('Error marking complete:', error);
+                alert('Failed to mark material as complete. Please try again.');
             });
         }
     }
@@ -233,6 +252,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const cookies = document.cookie.split(';');
             for (let i = 0; i < cookies.length; i++) {
                 const cookie = cookies[i].trim();
+                // Check for exact match
                 if (cookie.substring(0, name.length + 1) === (name + '=')) {
                     cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                     break;
@@ -240,6 +260,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         return cookieValue;
+    }
+
+    // Alternative CSRF token sources
+    function getCsrfToken() {
+        // Try different cookie names
+        let token = getCookie('csrftoken') || getCookie('csrf_token') || getCookie('csrfmiddlewaretoken');
+
+        // Try to get from meta tag
+        if (!token) {
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            if (metaTag) {
+                token = metaTag.getAttribute('content');
+            }
+        }
+
+        // Try to get from form
+        if (!token) {
+            const csrfInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (csrfInput) {
+                token = csrfInput.value;
+            }
+        }
+
+        return token;
     }
 });
 </script>

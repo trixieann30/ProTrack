@@ -346,19 +346,23 @@ def archive_training(request):
 def certifications(request):
     """Display user's certificates (US-09)"""
     user = request.user
-    
+    logger.info(f"certifications view called: user={user.id}, is_superuser={user.is_superuser}")
+
     if user.is_superuser:
+        logger.info("Loading admin certifications view")
         # Admins see all certificates
         certificates = Certificate.objects.select_related(
             'enrollment__user',
             'enrollment__course',
             'issued_by'
         ).order_by('-issue_date')
-        
+
         # Count pending certificates for admin notification
         pending_count = certificates.filter(status='draft').count()
-        
+        logger.info(f"Admin view: total certificates={certificates.count()}, pending={pending_count}")
+
     else:
+        logger.info("Loading user certifications view")
         # Regular users see their issued certificates and any pending (draft) certificates
         certificates = Certificate.objects.filter(
             enrollment__user=user,
@@ -370,13 +374,15 @@ def certifications(request):
 
         # Count user's pending (draft) certificates for UI badges
         pending_count = certificates.filter(status='draft').count()
-    
+        logger.info(f"User view: total certificates={certificates.count()}, pending={pending_count}")
+
     context = {
         'certificates': certificates,
         'user': user,
         'pending_count': pending_count,  # NEW: For admin notification
     }
-    
+
+    logger.info(f"Rendering certifications template with {len(certificates)} certificates")
     return render(request, 'dashboard/certifications.html', context)
 
 
@@ -801,109 +807,126 @@ def take_quiz(request, quiz_id):
 @user_passes_test(is_superuser)
 def manage_quiz(request, material_id):
     """Admin view to manage a quiz's questions and choices."""
-    material = get_object_or_404(TrainingMaterial, id=material_id, material_type='quiz')
-    quiz, created = Quiz.objects.get_or_create(
-        material=material,
-        defaults={'title': material.title, 'description': material.description}
-    )
+    logger.info(f"manage_quiz called: user={request.user.id}, material_id={material_id}")
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+    try:
+        material = get_object_or_404(TrainingMaterial, id=material_id, material_type='quiz')
+        logger.info(f"Found material: {material.title}, type={material.material_type}")
 
-        if action == 'update_pass_mark':
-            pass_mark = request.POST.get('pass_mark')
-            if pass_mark is not None:
-                quiz.pass_mark = int(pass_mark)
-                quiz.save()
-                if is_ajax:
-                    return JsonResponse({'success': True, 'pass_mark': quiz.pass_mark, 'message': 'Pass mark updated successfully.'})
-                messages.success(request, 'Pass mark updated successfully.')
+        quiz, created = Quiz.objects.get_or_create(
+            material=material,
+            defaults={'title': material.title, 'description': material.description}
+        )
+        logger.info(f"Quiz {'created' if created else 'found'}: {quiz.title}")
 
-        elif action == 'edit_question':
-            question_id = request.POST.get('question_id')
-            question = get_object_or_404(Question, id=question_id)
-            question.text = request.POST.get('text')
-            if question.question_type != 'multiple_choice':
-                question.correct_answer = request.POST.get('correct_answer')
-            question.save()
-            if is_ajax:
-                # Return updated fields so the client can update the UI
-                return JsonResponse({'success': True, 'question_id': question.id, 'text': question.text, 'correct_answer': question.correct_answer if question.question_type != 'multiple_choice' else None})
-            messages.success(request, 'Question updated successfully.')
+        if request.method == 'POST':
+            action = request.POST.get('action')
+            is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
+            logger.info(f"POST request: action={action}, is_ajax={is_ajax}")
 
-        elif action == 'add_choice':
-            question_id = request.POST.get('question_id')
-            question = get_object_or_404(Question, id=question_id)
-            text = request.POST.get('text')
-            is_correct = request.POST.get('is_correct') == 'true'
-            choice = Choice.objects.create(question=question, text=text, is_correct=is_correct)
-            if is_ajax:
-                # Return choice details so client can add it to the list
-                return JsonResponse({
-                    'success': True,
-                    'choice_id': choice.id,
-                    'text': choice.text,
-                    'is_correct': choice.is_correct,
-                    'message': 'Choice added successfully.'
-                })
-            messages.success(request, 'Choice added successfully.')
+            if action == 'update_pass_mark':
+                pass_mark = request.POST.get('pass_mark')
+                logger.info(f"Updating pass mark to: {pass_mark}")
+                if pass_mark is not None:
+                    quiz.pass_mark = int(pass_mark)
+                    quiz.save()
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'pass_mark': quiz.pass_mark, 'message': 'Pass mark updated successfully.'})
+                    messages.success(request, 'Pass mark updated successfully.')
 
-        elif action == 'save_all':
-            # Bulk update multiple questions at once
-            # Expect POST keys like question_<id>_text and question_<id>_correct
-            for key, value in request.POST.items():
-                if not key.startswith('question_'):
-                    continue
-                # key format: question_<id>_field
-                parts = key.split('_')
-                if len(parts) < 3:
-                    continue
-                try:
-                    qid = int(parts[1])
-                except ValueError:
-                    continue
-                field = '_'.join(parts[2:])
-                try:
-                    question = Question.objects.get(id=qid, quiz=quiz)
-                except Question.DoesNotExist:
-                    continue
-
-                if field == 'text':
-                    question.text = value
-                elif field == 'correct':
-                    # non-multiple choice correct answer
-                    question.correct_answer = value
-
+            elif action == 'edit_question':
+                question_id = request.POST.get('question_id')
+                logger.info(f"Editing question: {question_id}")
+                question = get_object_or_404(Question, id=question_id)
+                question.text = request.POST.get('text')
+                if question.question_type != 'multiple_choice':
+                    question.correct_answer = request.POST.get('correct_answer')
                 question.save()
-
-            messages.success(request, 'All questions saved successfully.')
-            # After bulk save, redirect back to the course page for the material
-            try:
                 if is_ajax:
-                    return JsonResponse({'success': True, 'redirect': reverse('dashboard:course_detail', args=[material.course.id])})
-                return redirect('dashboard:course_detail', course_id=material.course.id)
-            except Exception:
-                # Fallback to manage page if course lookup fails
+                    # Return updated fields so the client can update the UI
+                    return JsonResponse({'success': True, 'question_id': question.id, 'text': question.text, 'correct_answer': question.correct_answer if question.question_type != 'multiple_choice' else None})
+                messages.success(request, 'Question updated successfully.')
+
+            elif action == 'add_choice':
+                question_id = request.POST.get('question_id')
+                logger.info(f"Adding choice to question: {question_id}")
+                question = get_object_or_404(Question, id=question_id)
+                text = request.POST.get('text')
+                is_correct = request.POST.get('is_correct') == 'true'
+                choice = Choice.objects.create(question=question, text=text, is_correct=is_correct)
                 if is_ajax:
-                    return JsonResponse({'success': True, 'redirect': reverse('dashboard:manage_quiz', args=[material.id])})
-                return redirect('dashboard:manage_quiz', material_id=material.id)
+                    # Return choice details so client can add it to the list
+                    return JsonResponse({
+                        'success': True,
+                        'choice_id': choice.id,
+                        'text': choice.text,
+                        'is_correct': choice.is_correct,
+                        'message': 'Choice added successfully.'
+                    })
+                messages.success(request, 'Choice added successfully.')
 
-        else:  # Default action is to add a new question
-            text = request.POST.get('text')
-            question_type = request.POST.get('question_type')
-            Question.objects.create(quiz=quiz, text=text, question_type=question_type)
-            messages.success(request, 'Question added successfully.')
-            
-        return redirect('dashboard:manage_quiz', material_id=material.id)
+            elif action == 'save_all':
+                logger.info("Bulk saving all questions")
+                # Bulk update multiple questions at once
+                # Expect POST keys like question_<id>_text and question_<id>_correct
+                for key, value in request.POST.items():
+                    if not key.startswith('question_'):
+                        continue
+                    # key format: question_<id>_field
+                    parts = key.split('_')
+                    if len(parts) < 3:
+                        continue
+                    try:
+                        qid = int(parts[1])
+                    except ValueError:
+                        continue
+                    field = '_'.join(parts[2:])
+                    try:
+                        question = Question.objects.get(id=qid, quiz=quiz)
+                    except Question.DoesNotExist:
+                        continue
 
-    questions = quiz.questions.all().prefetch_related('choices')
+                    if field == 'text':
+                        question.text = value
+                    elif field == 'correct':
+                        # non-multiple choice correct answer
+                        question.correct_answer = value
 
-    context = {
-        'material': material,
-        'questions': questions,
-    }
-    return render(request, 'dashboard/manage_quiz.html', context)
+                    question.save()
+
+                messages.success(request, 'All questions saved successfully.')
+                # After bulk save, redirect back to the course page for the material
+                try:
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'redirect': reverse('dashboard:course_detail', args=[material.course.id])})
+                    return redirect('dashboard:course_detail', course_id=material.course.id)
+                except Exception:
+                    # Fallback to manage page if course lookup fails
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'redirect': reverse('dashboard:manage_quiz', args=[material.id])})
+                    return redirect('dashboard:manage_quiz', material_id=material.id)
+
+            else:  # Default action is to add a new question
+                text = request.POST.get('text')
+                question_type = request.POST.get('question_type')
+                logger.info(f"Adding new question: type={question_type}")
+                Question.objects.create(quiz=quiz, text=text, question_type=question_type)
+                messages.success(request, 'Question added successfully.')
+
+            return redirect('dashboard:manage_quiz', material_id=material.id)
+
+        questions = quiz.questions.all().prefetch_related('choices')
+        logger.info(f"Rendering template with {questions.count()} questions")
+
+        context = {
+            'material': material,
+            'questions': questions,
+        }
+        return render(request, 'dashboard/manage_quiz.html', context)
+
+    except Exception as e:
+        logger.error(f"Error in manage_quiz: {str(e)}", exc_info=True)
+        raise
 
 
 @login_required
@@ -1110,6 +1133,11 @@ def get_course_sessions(request, course_id):
 @login_required
 def settings(request):
     """Main settings page"""
+    # Clear any existing messages to prevent them from showing inappropriately
+    # This helps with the issue where messages appear in settings from other pages
+    storage = messages.get_messages(request)
+    storage.used = True  # Mark all messages as used/consumed
+
     return render(request, 'dashboard/settings.html')
 
 
@@ -2361,28 +2389,40 @@ def mark_material_viewed(request, enrollment_id, material_id):
     API endpoint to mark material as viewed/complete
     Called via JavaScript when user has viewed the file
     """
+    logger.info(f"mark_material_viewed called: user={request.user.id}, enrollment={enrollment_id}, material={material_id}")
     try:
         enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
         material = get_object_or_404(TrainingMaterial, id=material_id, course=enrollment.course)
-        
+
+        logger.info(f"Found enrollment and material: enrollment.user={enrollment.user.id}, material.title={material.title}")
+
         # Check if already completed
-        if material.id in enrollment.completed_materials.values_list('id', flat=True):
+        completed_ids = list(enrollment.completed_materials.values_list('id', flat=True))
+        logger.info(f"Completed materials before: {completed_ids}")
+
+        if material.id in completed_ids:
+            logger.info("Material already completed")
             return JsonResponse({'success': True, 'message': 'Already marked as complete'})
-        
+
         # Mark as complete
         enrollment.completed_materials.add(material)
-        
+        logger.info(f"Added material {material.id} to completed materials")
+
         # Recalculate progress
         total_materials = enrollment.course.materials.count()
+        logger.info(f"Total materials in course: {total_materials}")
+
         if total_materials > 0:
             completed_count = enrollment.completed_materials.count()
             progress = round((completed_count / total_materials) * 100)
             enrollment.progress_percentage = progress
-            
+            logger.info(f"Progress updated: {completed_count}/{total_materials} = {progress}%")
+
             # Check for course completion
             if progress == 100 and enrollment.status != 'completed':
+                logger.info("Course completion detected, marking as completed")
                 enrollment.mark_completed()
-                
+
                 # Generate draft certificate
                 certificate, created = Certificate.objects.get_or_create(
                     enrollment=enrollment,
@@ -2392,8 +2432,9 @@ def mark_material_viewed(request, enrollment_id, material_id):
                         'status': 'draft',
                     }
                 )
-                
+
                 if created:
+                    logger.info("Draft certificate created")
                     # Notify user about completion
                     Notification.objects.create(
                         user=enrollment.user,
@@ -2402,7 +2443,7 @@ def mark_material_viewed(request, enrollment_id, material_id):
                         message=f'Congratulations! You have completed "{enrollment.course.title}". Your certificate is pending approval.',
                         link=reverse('dashboard:certifications')
                     )
-                    
+
                     # Notify admins
                     admins = CustomUser.objects.filter(is_superuser=True)
                     for admin in admins:
@@ -2413,16 +2454,22 @@ def mark_material_viewed(request, enrollment_id, material_id):
                             message=f'{enrollment.user.get_full_name() or enrollment.user.username} completed "{enrollment.course.title}" and needs certificate approval.',
                             link=reverse('dashboard:certifications')
                         )
-            
+                else:
+                    logger.info("Certificate already exists")
+
             enrollment.save()
-        
-        return JsonResponse({
+            logger.info("Enrollment saved successfully")
+
+        response_data = {
             'success': True,
             'message': 'Material marked as complete',
             'progress': enrollment.progress_percentage
-        })
-        
+        }
+        logger.info(f"Returning success response: {response_data}")
+        return JsonResponse(response_data)
+
     except Exception as e:
+        logger.error(f"Error in mark_material_viewed: {str(e)}", exc_info=True)
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @require_POST
