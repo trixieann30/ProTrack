@@ -39,7 +39,7 @@
 
     /* header bar height */
     --header-height: 65px;
-    --sidebar-width: 260px; 
+    --sidebar-width: 210px; 
 
     /* single source of truth for dashboard background */
     --content-bg: #f0f2f8;
@@ -779,11 +779,12 @@ footer {
 /* Main Content Area */
 .dashboard-wrapper {
     margin-left: var(--sidebar-width);
-    padding: 2rem;
-    transition: margin-left var(--transition-base);
+    padding-top: var(--header-height); /* match header height */
+    padding-left: 2rem;
+    padding-right: 2rem;
+    padding-bottom: 2rem;
     min-height: 100vh;
     background: var(--content-bg);
-    z-index: auto; /* Fix for modal backdrop issue */
 }
 
 .dashboard-header {
