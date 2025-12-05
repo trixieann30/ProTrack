@@ -76,6 +76,21 @@
     border-top: 1px solid #e5e7eb;
 }
 
+.browse-courses-btn {
+    padding: 0.4rem 1.2rem; 
+    font-size: 0.95rem;       
+    border-radius: 8px;       
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;               
+    font-weight: 600;
+}
+
+.browse-courses-btn i {
+    font-size: 0.9rem;        
+    line-height: 1;          
+}
+
 .meta-item {
     display: flex;
     align-items: center;
@@ -281,8 +296,8 @@
             {% endif %}
         </p>
         {% if not user.is_superuser %}
-            <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-primary">
-                <i class="fas fa-search me-2"></i>Browse Courses
+            <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-primary browse-courses-btn">
+                </i> Browse Courses
             </a>
         {% endif %}
     </div>
