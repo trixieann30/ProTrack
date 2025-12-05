@@ -93,9 +93,7 @@
                 </a>
             </li>
             {% if user.is_superuser %}
-            <li class="sidebar-menu-item">
-                <a href="{% url 'dashboard:assign_training' %}"
-                    class="sidebar-menu-link {% if 'assign' in request.resolver_match.url_name %}active{% endif %}">
+            <!-- Assign Training removed -->
                     <i class="fas fa-user-plus"></i>
                     <span>Assign Training</span>
                 </a>

@@ -128,8 +128,8 @@
         </p>
     </div>
     {% if user.is_superuser %}
-        <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-primary">
-            <i class="fas fa-graduation-cap me-2"></i>View Courses
+        <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Admin Dashboard
         </a>
     {% endif %}
 </div>

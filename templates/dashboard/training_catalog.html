@@ -198,10 +198,7 @@
         </p>
     </div>
     {% if user.is_superuser %}
-    <div class="d-flex gap-2">
-        <a href="{% url 'dashboard:assign_training' %}" class="btn btn-purple">
-            <i class="fas fa-user-plus me-2"></i>Assign Training
-        </a>
+    <!-- Assign Training removed -->
 
         <a href="{% url 'dashboard:create_training' %}" class="btn btn-purple">
             <i class="fas fa-plus me-1"></i>New Training

@@ -145,20 +145,26 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('View material page loaded');
     const isCompleted = JSON.parse('{{ is_completed|lower }}');
     const isViewable = JSON.parse('{{ is_viewable|lower }}');
-    
+
+    console.log('isCompleted:', isCompleted, 'isViewable:', isViewable);
+
     if (!isCompleted && isViewable) {
+        console.log('Setting up auto-completion tracking');
         // Track viewing time
         let viewingTime = 0;
         let marked = false;
-        
+
         // Set interval to check viewing time
         const viewTimer = setInterval(function() {
             viewingTime++;
-            
+            console.log('Viewing time:', viewingTime, 'seconds');
+
             // Mark as complete after 10 seconds of viewing
             if (viewingTime >= 10 && !marked) {
+                console.log('10 seconds reached, marking as complete');
                 marked = true;
                 markAsComplete();
                 clearInterval(viewTimer);
@@ -168,7 +174,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // For videos, mark complete when video ends
         const video = document.getElementById('videoPlayer');
         if (video) {
+            console.log('Video element found, adding ended event listener');
             video.addEventListener('ended', function() {
+                console.log('Video ended, marking as complete');
                 if (!marked) {
                     marked = true;
                     markAsComplete();
@@ -176,12 +184,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
-        
+
         // For PDFs, check if user scrolled through it
         const pdfFrame = document.getElementById('pdfFrame');
         if (pdfFrame) {
+            console.log('PDF frame found, setting 30 second timeout');
             // Mark complete after 30 seconds for PDFs (assuming they're reading)
             setTimeout(function() {
+                console.log('30 seconds reached for PDF, marking as complete');
                 if (!marked) {
                     marked = true;
                     markAsComplete();
