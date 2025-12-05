@@ -72,6 +72,7 @@ urlpatterns = [
     
     # Materials
     path('training/course/<int:course_id>/upload/', views.upload_material, name='upload_material'),
+    path('training/material/<int:material_id>/edit/', views.edit_material, name='edit_material'),
     path('training/material/<int:material_id>/delete/', views.delete_material, name='delete_material'),
     path('training/course/<int:course_id>/download-all/', views.download_all_materials, name='download_all_materials'),
     

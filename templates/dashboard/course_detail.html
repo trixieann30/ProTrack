@@ -238,20 +238,26 @@
                         {% if user.is_superuser %}
                             <!-- Admin Actions -->
                             {% if material.material_type == 'quiz' and material.quiz %}
-                                <a href="{% url 'dashboard:manage_quiz' material.id %}" 
-                                class="btn btn-sm btn-primary" 
+                                <a href="{% url 'dashboard:manage_quiz' material.id %}"
+                                class="btn btn-sm btn-primary"
                                 title="Manage Quiz">
                                     <i class="fas fa-cogs"></i>
                                 </a>
                             {% endif %}
-                            
-                            <a href="{{ material.file_url }}" 
-                            target="_blank" 
+
+                            <a href="{% url 'dashboard:edit_material' material.id %}"
+                            class="btn btn-sm btn-outline-secondary"
+                            title="Edit Material">
+                                <i class="fas fa-edit"></i>
+                            </a>
+
+                            <a href="{{ material.file_url }}"
+                            target="_blank"
                             class="btn btn-sm btn-outline-primary"
                             download="{{ material.file_name }}">
                                 <i class="fas fa-download"></i>
                             </a>
-                            
+
                             <button class="btn btn-sm btn-outline-danger"
                                     onclick="deleteMaterial({{ material.id }}, '{{ material.title }}')"
                                     title="Delete Material">
@@ -607,7 +613,7 @@
                 <input type="file" class="form-control" id="materialFile" name="file">
                 <div class="form-text">
                 <i class="fas fa-info-circle me-1"></i>
-                Max size: 50MB. Allowed types: PDF, DOC, DOCX, PPT, PPTX, MP4, AVI, MOV, ZIP
+                Max size: 50MB. Allowed types: PDF, DOC, DOCX, PPT, PPTX, MP4, AVI, MOV, WMV, WEBM, ZIP
                 </div>
                 <div class="invalid-feedback" id="fileInvalidFeedback">Please select a file.</div>
             </div>
@@ -623,13 +629,6 @@
                 </div>
             </div>
 
-            <!-- Required Checkbox -->
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="isRequired" name="is_required">
-                <label class="form-check-label" for="isRequired">
-                Required for course completion
-                </label>
-            </div>
 
             <!-- Order -->
             <div class="mb-3">
@@ -690,6 +689,66 @@ document.addEventListener('DOMContentLoaded', function() {
     if (materialType) {
         materialType.addEventListener('change', updateFileField);
         updateFileField();
+    }
+
+    // Handle upload form submission with AJAX
+    const uploadForm = document.getElementById('uploadMaterialForm');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const submitBtn = document.getElementById('uploadBtn');
+            const originalText = submitBtn.innerHTML;
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    return response.json();
+                }
+                // If not JSON, treat as success and reload
+                return { success: true };
+            })
+            .then(data => {
+                if (data && data.success) {
+                    // Success - close modal and reload page
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('uploadMaterialModal'));
+                    modal.hide();
+                    window.location.reload();
+                } else if (data && data.error) {
+                    // Error - show toast message instead of modal error
+                    if (window.ProTrack && window.ProTrack.showToast) {
+                        window.ProTrack.showToast(data.error, 'danger');
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                if (window.ProTrack && window.ProTrack.showToast) {
+                    window.ProTrack.showToast('Network error occurred during upload', 'danger');
+                } else {
+                    alert('Network error occurred during upload');
+                }
+            })
+            .finally(() => {
+                // Restore button state
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
     }
 });
 </script>
