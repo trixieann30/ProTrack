@@ -182,7 +182,11 @@
                 <div class="certificate-header">
                     <div class="d-flex">
                         <div class="certificate-icon">
-                            <i class="fas fa-certificate"></i>
+                            {% if cert.enrollment.course.logo %}
+                                <img src="{{ cert.enrollment.course.logo.url }}" alt="Course Logo" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                            {% else %}
+                                <i class="fas fa-certificate"></i>
+                            {% endif %}
                         </div>
                         <div class="certificate-details flex-grow-1">
                             <h4>{{ cert.enrollment.course.title }}</h4>
