@@ -809,12 +809,15 @@ def manage_quiz(request, material_id):
 
     if request.method == 'POST':
         action = request.POST.get('action')
+        is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.META.get('HTTP_X_REQUESTED_WITH') == 'XMLHttpRequest'
 
         if action == 'update_pass_mark':
             pass_mark = request.POST.get('pass_mark')
             if pass_mark is not None:
                 quiz.pass_mark = int(pass_mark)
                 quiz.save()
+                if is_ajax:
+                    return JsonResponse({'success': True, 'pass_mark': quiz.pass_mark, 'message': 'Pass mark updated successfully.'})
                 messages.success(request, 'Pass mark updated successfully.')
 
         elif action == 'edit_question':
@@ -824,6 +827,9 @@ def manage_quiz(request, material_id):
             if question.question_type != 'multiple_choice':
                 question.correct_answer = request.POST.get('correct_answer')
             question.save()
+            if is_ajax:
+                # Return updated fields so the client can update the UI
+                return JsonResponse({'success': True, 'question_id': question.id, 'text': question.text, 'correct_answer': question.correct_answer if question.question_type != 'multiple_choice' else None})
             messages.success(request, 'Question updated successfully.')
 
         elif action == 'add_choice':
@@ -831,7 +837,16 @@ def manage_quiz(request, material_id):
             question = get_object_or_404(Question, id=question_id)
             text = request.POST.get('text')
             is_correct = request.POST.get('is_correct') == 'true'
-            Choice.objects.create(question=question, text=text, is_correct=is_correct)
+            choice = Choice.objects.create(question=question, text=text, is_correct=is_correct)
+            if is_ajax:
+                # Return choice details so client can add it to the list
+                return JsonResponse({
+                    'success': True,
+                    'choice_id': choice.id,
+                    'text': choice.text,
+                    'is_correct': choice.is_correct,
+                    'message': 'Choice added successfully.'
+                })
             messages.success(request, 'Choice added successfully.')
 
         elif action == 'save_all':
@@ -865,9 +880,13 @@ def manage_quiz(request, material_id):
             messages.success(request, 'All questions saved successfully.')
             # After bulk save, redirect back to the course page for the material
             try:
+                if is_ajax:
+                    return JsonResponse({'success': True, 'redirect': reverse('dashboard:course_detail', args=[material.course.id])})
                 return redirect('dashboard:course_detail', course_id=material.course.id)
             except Exception:
                 # Fallback to manage page if course lookup fails
+                if is_ajax:
+                    return JsonResponse({'success': True, 'redirect': reverse('dashboard:manage_quiz', args=[material.id])})
                 return redirect('dashboard:manage_quiz', material_id=material.id)
 
         else:  # Default action is to add a new question
@@ -2405,3 +2424,75 @@ def mark_material_viewed(request, enrollment_id, material_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@require_POST
+@login_required
+def edit_choice(request):
+    """
+    Update an existing choice's text and correctness.
+    Expects POST: choice_id, text, is_correct (true/false)
+    Returns JSON: { success: True, choice_id, text, is_correct }
+    """
+    choice_id = request.POST.get('choice_id')
+    if not choice_id:
+        return JsonResponse({'success': False, 'message': 'choice_id required'}, status=400)
+
+    choice = get_object_or_404(Choice, pk=choice_id)
+
+    text = request.POST.get('text', '').strip()
+    is_correct = request.POST.get('is_correct', 'false').lower() in ('true', '1', 'on')
+
+    if text == '':
+        return JsonResponse({'success': False, 'message': 'Choice text cannot be empty'}, status=400)
+
+    choice.text = text
+    choice.is_correct = is_correct
+    choice.save()
+
+    return JsonResponse({'success': True, 'choice_id': choice.id, 'text': choice.text, 'is_correct': choice.is_correct})
+
+
+@require_POST
+@login_required
+def delete_choice(request):
+    """
+    Delete a choice by id.
+    Expects POST: choice_id
+    Returns JSON: { success: True, choice_id }
+    """
+    choice_id = request.POST.get('choice_id')
+    if not choice_id:
+        return JsonResponse({'success': False, 'message': 'choice_id required'}, status=400)
+
+    choice = get_object_or_404(Choice, pk=choice_id)
+
+    # Optional permission check:
+    # if choice.question.quiz.owner != request.user and not request.user.is_staff:
+    #     return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+    choice.delete()
+    return JsonResponse({'success': True, 'choice_id': choice_id})
+
+
+@require_POST
+@login_required
+def delete_question(request):
+    """
+    Delete a question by id.
+    Expects POST: question_id
+    Returns JSON: { success: True, question_id }
+    """
+    question_id = request.POST.get('question_id')
+    if not question_id:
+        return JsonResponse({'success': False, 'message': 'question_id required'}, status=400)
+
+    question = get_object_or_404(Question, pk=question_id)
+
+    # Optional permission check: ensure the current user can delete this question.
+    # Uncomment & adjust fields to your model's relationships.
+    # quiz = getattr(question, 'quiz', None)
+    # if quiz and getattr(quiz, 'owner', None) and quiz.owner != request.user and not request.user.is_staff:
+    #     return JsonResponse({'success': False, 'message': 'Permission denied'}, status=403)
+
+    question.delete()
+    return JsonResponse({'success': True, 'question_id': question_id})

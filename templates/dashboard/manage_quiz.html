@@ -2,6 +2,23 @@
 
 {% block title %}Manage Quiz: {{ quiz.title }} - ProTrack{% endblock %}
 
+<<<<<<< Updated upstream
+=======
+{% block extra_css %}
+<style>
+.edit-question-inline {
+    display: none !important;
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+.edit-question-inline.show {
+    display: block !important;
+}
+</style>
+{% endblock %}
+>>>>>>> Stashed changes
 
 {% block content %}
 <div class="container-fluid">
@@ -40,35 +57,36 @@
                     </div>
 
                     {% for question in questions %}
-                        <div class="mb-4 border-bottom pb-3">
+                        <div id="questionBlock-{{ question.id }}" class="mb-4 border-bottom pb-3">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <strong>{{ forloop.counter }}. <span class="question-preview" data-qid="{{ question.id }}">{{ question.text }}</span></strong> ({{ question.get_question_type_display }})
                                 </div>
                                 <div>
-                                    <button class="btn btn-sm btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#editQuestionModal-{{ question.id }}">Edit</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary me-2 edit-toggle-btn" data-qid="{{ question.id }}">Edit</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-question-btn" data-qid="{{ question.id }}">Delete</button>
                                 </div>
                             </div>
 
                             {% if question.question_type == 'multiple_choice' %}
-                                <ul class="list-unstyled mt-2">
+                                <ul class="list-unstyled mt-2 choices-list" id="choicesList-{{ question.id }}">
                                     {% for choice in question.choices.all %}
-                                        <li class="{% if choice.is_correct %}text-success fw-bold{% endif %}">
+                                        <li class="choice-item {% if choice.is_correct %}text-success fw-bold{% endif %}" data-choice-id="{{ choice.id }}">
                                             {{ choice.text }}
                                             {% if choice.is_correct %}<i class="fas fa-check ms-2"></i>{% endif %}
                                         </li>
                                     {% endfor %}
                                 </ul>
-                                <form method="post" class="row g-2 align-items-center mt-2">
+                                <form method="post" class="row g-2 align-items-center mt-2 add-choice-form">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="add_choice">
                                     <input type="hidden" name="question_id" value="{{ question.id }}">
                                     <div class="col-auto">
-                                        <input type="text" name="text" class="form-control form-control-sm" placeholder="Add a choice" required>
+                                        <input type="text" name="text" class="form-control form-control-sm add-choice-text" placeholder="Add a choice" required>
                                     </div>
                                     <div class="col-auto">
                                         <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="is_correct" value="true">
+                                            <input class="form-check-input add-choice-correct" type="checkbox" name="is_correct" value="true">
                                             <label class="form-check-label">Correct</label>
                                         </div>
                                     </div>
@@ -77,47 +95,37 @@
                                     </div>
                                 </form>
                             {% else %}
-                                <p class="mt-2"><strong>Correct Answer:</strong> <span class="text-success fw-bold">{{ question.correct_answer|default:"Not set" }}</span></p>
+                                <p class="mt-2"><strong>Correct Answer:</strong> <span class="correct-answer-display text-success fw-bold" data-qid="{{ question.id }}">{{ question.correct_answer|default:"Not set" }}</span></p>
                             {% endif %}
-                        </div>
 
-                        <!-- Edit Question Modal -->
-                        <div class="modal" id="editQuestionModal-{{ question.id }}" tabindex="-1" aria-labelledby="editQuestionModalLabel-{{ question.id }}" aria-hidden="true">
-                            <div class="modal-dialog modal-dialog-centered">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="editQuestionModalLabel-{{ question.id }}">Edit Question</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            <!-- Inline Edit Form (replaces modal) -->
+                            <div class="edit-question-inline mt-3" id="editQuestionInline-{{ question.id }}">
+                                <form method="post" class="edit-question-form" data-qid="{{ question.id }}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="edit_question">
+                                    <input type="hidden" name="question_id" value="{{ question.id }}">
+                                    <div class="mb-3">
+                                        <label for="text-{{ question.id }}" class="form-label">Question Text</label>
+                                        <textarea id="text-{{ question.id }}" name="text" class="form-control edit-question-text" rows="3" required>{{ question.text }}</textarea>
                                     </div>
-                                    <form method="post" class="edit-question-form">
-                                        {% csrf_token %}
-                                        <div class="modal-body">
-                                            <input type="hidden" name="action" value="edit_question">
-                                            <input type="hidden" name="question_id" value="{{ question.id }}">
-                                            <div class="mb-3">
-                                                <label for="text-{{ question.id }}" class="form-label">Question Text</label>
-                                                <textarea id="text-{{ question.id }}" name="text" class="form-control edit-question-text" rows="3" required>{{ question.text }}</textarea>
-                                            </div>
-                                            {% if question.question_type != 'multiple_choice' %}
-                                                <div class="mb-3">
-                                                    <label for="correct_answer-{{ question.id }}" class="form-label">Correct Answer</label>
-                                                    {% if question.question_type == 'true_false' %}
-                                                        <select id="correct_answer-{{ question.id }}" name="correct_answer" class="form-select edit-question-correct" required>
-                                                            <option value="True" {% if question.correct_answer == 'True' %}selected{% endif %}>True</option>
-                                                            <option value="False" {% if question.correct_answer == 'False' %}selected{% endif %}>False</option>
-                                                        </select>
-                                                    {% else %}
-                                                        <input type="text" id="correct_answer-{{ question.id }}" name="correct_answer" class="form-control edit-question-correct" value="{{ question.correct_answer|default:'' }}" required>
-                                                    {% endif %}
-                                                </div>
+                                    {% if question.question_type != 'multiple_choice' %}
+                                        <div class="mb-3">
+                                            <label for="correct_answer-{{ question.id }}" class="form-label">Correct Answer</label>
+                                            {% if question.question_type == 'true_false' %}
+                                                <select id="correct_answer-{{ question.id }}" name="correct_answer" class="form-select edit-question-correct" required>
+                                                    <option value="True" {% if question.correct_answer == 'True' %}selected{% endif %}>True</option>
+                                                    <option value="False" {% if question.correct_answer == 'False' %}selected{% endif %}>False</option>
+                                                </select>
+                                            {% else %}
+                                                <input type="text" id="correct_answer-{{ question.id }}" name="correct_answer" class="form-control edit-question-correct" value="{{ question.correct_answer|default:'' }}" required>
                                             {% endif %}
                                         </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                                        </div>
-                                    </form>
-                                </div>
+                                    {% endif %}
+                                    <div class="mb-3">
+                                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                                        <button type="button" class="btn btn-secondary btn-sm cancel-edit-btn" data-qid="{{ question.id }}">Cancel</button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     {% empty %}
@@ -196,62 +204,249 @@
     </div>
     {% endfor %}
 </div>
+{% endblock %}
+
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function(){
-    const saveAllBtn = document.getElementById('saveAllBtn');
-    if(!saveAllBtn) return;
+    // Server-resolved URLs (ensure dashboard:delete_question exists)
+    const QUESTION_DELETE_URL = "{% url 'dashboard:delete_question' %}";
 
-    saveAllBtn.addEventListener('click', function(e){
-        e.preventDefault();
+    // Helper: get CSRF token value from the page
+    function getCsrfToken(){
+        const el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return el ? el.value : null;
+    }
 
-        // Build a POST form for bulk save
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '';
-
-        // CSRF token
-        const csrftoken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = csrftoken;
-        form.appendChild(csrfInput);
-
-        // action
-        const actionInput = document.createElement('input');
-        actionInput.type = 'hidden';
-        actionInput.name = 'action';
-        actionInput.value = 'save_all';
-        form.appendChild(actionInput);
-
-        // For each question modal, pull values
-        document.querySelectorAll('.edit-question-form').forEach(function(qform){
-            const qid = qform.querySelector('input[name="question_id"]').value;
-            const textEl = qform.querySelector('.edit-question-text');
-            if(textEl){
-                const inp = document.createElement('input');
-                inp.type = 'hidden';
-                inp.name = `question_${qid}_text`;
-                inp.value = textEl.value;
-                form.appendChild(inp);
-            }
-
-            const correctEl = qform.querySelector('.edit-question-correct');
-            if(correctEl){
-                const inp2 = document.createElement('input');
-                inp2.type = 'hidden';
-                inp2.name = `question_${qid}_correct`;
-                inp2.value = correctEl.value;
-                form.appendChild(inp2);
-            }
+    // Helper to post FormData and expect JSON
+    function fetchJson(url, formData){
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        }).then(resp => {
+            const ct = resp.headers.get('content-type') || '';
+            if(ct.includes('application/json')) return resp.json();
+            throw new Error('Server returned non-JSON response');
         });
+    }
 
-        document.body.appendChild(form);
-        form.submit();
+    // ---------- Delete question handler (delegated) ----------
+    document.addEventListener('click', function(e){
+        const btn = e.target.matches('.delete-question-btn') ? e.target : (e.target.closest ? e.target.closest('.delete-question-btn') : null);
+        if(!btn) return;
+
+        e.preventDefault();
+        const qid = btn.getAttribute('data-qid');
+        if(!qid) return;
+        if(!confirm('Delete this question? This action cannot be undone.')) return;
+
+        const fd = new FormData();
+        fd.append('question_id', qid);
+        const csrftoken = getCsrfToken();
+        if(csrftoken) fd.append('csrfmiddlewaretoken', csrftoken);
+
+        fetchJson(QUESTION_DELETE_URL, fd).then(data => {
+            if(data && data.success){
+                // remove the question block from the DOM
+                const block = document.getElementById('questionBlock-'+qid);
+                if(block) block.remove();
+            } else {
+                alert('Failed to delete question: ' + (data && data.message ? data.message : 'Unknown error'));
+            }
+        }).catch(err => {
+            alert('Network error: ' + err.message);
+        });
     });
+
+    // ---------- Existing handlers (unchanged) ----------
+    // Save all button (unchanged)
+    const saveAllBtn = document.getElementById('saveAllBtn');
+    if(saveAllBtn){
+        saveAllBtn.addEventListener('click', function(e){
+            e.preventDefault();
+
+            // Build a POST form for bulk save
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+
+            // CSRF token
+            const csrftokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            if(csrftokenInput){
+                const csrftoken = csrftokenInput.value;
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = csrftoken;
+                form.appendChild(csrfInput);
+            }
+
+            // action
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'save_all';
+            form.appendChild(actionInput);
+
+            // For each question form, pull values
+            document.querySelectorAll('.edit-question-form').forEach(function(qform){
+                const qid = qform.querySelector('input[name="question_id"]').value;
+                const textEl = qform.querySelector('.edit-question-text');
+                if(textEl){
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden';
+                    inp.name = `question_${qid}_text`;
+                    inp.value = textEl.value;
+                    form.appendChild(inp);
+                }
+
+                const correctEl = qform.querySelector('.edit-question-correct');
+                if(correctEl){
+                    const inp2 = document.createElement('input');
+                    inp2.type = 'hidden';
+                    inp2.name = `question_${qid}_correct`;
+                    inp2.value = correctEl.value;
+                    form.appendChild(inp2);
+                }
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
+
+    // ---------- Attach handlers once (avoid nested registrations) ----------
+    // 1) Submit handlers for inline edit forms
+    document.querySelectorAll('.edit-question-form').forEach(function(form){
+        form.addEventListener('submit', function(e){
+            e.preventDefault();
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if(submitBtn) submitBtn.disabled = true;
+
+            const fd = new FormData(form);
+            if(!fd.get('action')) fd.set('action', 'edit_question');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: fd
+            }).then(response => {
+                const ct = response.headers.get('content-type') || '';
+                if(ct.includes('application/json')) return response.json();
+                throw new Error('Server returned non-JSON response');
+            }).then(data => {
+                if(data && data.success){
+                    const qid = data.question_id;
+                    const preview = document.querySelector('.question-preview[data-qid="'+qid+'"]');
+                    if(preview && data.text) preview.textContent = data.text;
+
+                    if(data.correct_answer !== undefined){
+                        const display = document.querySelector('.correct-answer-display[data-qid="'+qid+'"]');
+                        if(display) display.textContent = (data.correct_answer || 'Not set');
+                    }
+
+                    // Hide inline form reliably
+                    const inlineEl = document.getElementById('editQuestionInline-'+qid);
+                    if(inlineEl){
+                        inlineEl.classList.remove('show');
+                    }
+
+                    // Remove focus to avoid accidental re-open
+                    if(document.activeElement) document.activeElement.blur();
+                } else {
+                    alert('Failed to save question: ' + (data && data.message ? data.message : 'Unknown error'));
+                }
+            }).catch(err => {
+                alert('Network error: ' + err.message);
+            }).finally(() => {
+                if(submitBtn) submitBtn.disabled = false;
+            });
+        });
+    });
+
+    // 2) Delegate click handler for Edit toggle buttons (single handler)
+    document.addEventListener('click', function(e){
+        const btn = e.target.matches('.edit-toggle-btn') ? e.target : e.target.closest && e.target.closest('.edit-toggle-btn');
+        if(!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const qid = btn.getAttribute('data-qid');
+        const inline = document.getElementById('editQuestionInline-'+qid);
+
+        if(!inline) return;
+
+        inline.classList.toggle('show');
+
+        // focus the textarea when showing
+        if(inline.classList.contains('show')){
+            setTimeout(function(){
+                const ta = inline.querySelector('.edit-question-text');
+                if(ta) ta.focus();
+            }, 50);
+        }
+    });
+
+    // 3) Delegate click handler for Cancel buttons
+    document.addEventListener('click', function(e){
+        const btn = e.target.matches('.cancel-edit-btn') ? e.target : e.target.closest && e.target.closest('.cancel-edit-btn');
+        if(!btn) return;
+        e.preventDefault();
+        const qid = btn.getAttribute('data-qid');
+        const inline = document.getElementById('editQuestionInline-'+qid);
+        if(inline) inline.classList.remove('show');
+    });
+
+    // 4) Attach add-choice-form submit handlers once
+    document.querySelectorAll('.add-choice-form').forEach(function(form){
+        form.addEventListener('submit', function(e){
+            e.preventDefault();
+            const fd = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if(submitBtn) submitBtn.disabled = true;
+
+            fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: fd
+            }).then(response => {
+                const ct = response.headers.get('content-type') || '';
+                if(ct.includes('application/json')) return response.json();
+                throw new Error('Server returned non-JSON response');
+            }).then(data => {
+                if(data && data.success){
+                    const qid = fd.get('question_id');
+                    const choicesList = document.getElementById('choicesList-'+qid);
+                    if(choicesList){
+                        const li = document.createElement('li');
+                        li.className = 'choice-item' + (data.is_correct ? ' text-success fw-bold' : '');
+                        li.setAttribute('data-choice-id', data.choice_id);
+                        li.innerHTML = data.text + (data.is_correct ? '<i class="fas fa-check ms-2"></i>' : '');
+                        choicesList.appendChild(li);
+                    }
+                    // Clear the form
+                    form.reset();
+                } else {
+                    alert('Failed to add choice: ' + (data && data.message ? data.message : 'Unknown error'));
+                }
+            }).catch(err => {
+                alert('Network error: ' + err.message);
+            }).finally(() => {
+                if(submitBtn) submitBtn.disabled = false;
+            });
+        });
+    });
+
 });
 </script>
+<<<<<<< Updated upstream
 {% endblock %}
 {% endblock %}
 
@@ -261,3 +456,6 @@ document.addEventListener('DOMContentLoaded', function(){
     // No additional JavaScript needed - Bootstrap's native functionality works automatically
 </script>
 {% endblock %}
+=======
+{% endblock %}
+>>>>>>> Stashed changes

@@ -82,7 +82,9 @@ urlpatterns = [
     
     # Admin: Quiz Management
     path('admin/quizzes/material/<int:material_id>/manage/', views.manage_quiz, name='manage_quiz'),
-    
+    path('choice/edit/', views.edit_choice, name='edit_choice'),
+    path('choice/delete/', views.delete_choice, name='delete_choice'),
+    path('question/delete/', views.delete_question, name='delete_question'),
     # Notification URLs
     path('notifications/', views.notifications_list, name='notifications_list'),
     path('api/notifications/', views.notifications_api, name='notifications_api'),

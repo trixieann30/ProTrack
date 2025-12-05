@@ -448,8 +448,9 @@
             <div>
                 {% for enrollment in recent_enrollments %}
                 <div class="enrollment-item">
-                    <img src="{% if enrollment.user.profile_picture %}{{ enrollment.user.profile_picture.url }}{% else %}https://ui-avatars.com/api/?name={{ enrollment.user.get_full_name|urlencode }}&background=667eea&color=fff{% endif %}" 
-                         alt="{{ enrollment.user.username }}" class="user-avatar">
+                    <div class="user-avatar d-flex align-items-center justify-content-center" title="{{ enrollment.user.get_full_name|default:enrollment.user.username }}">
+                        <i class="fas fa-user text-muted" style="font-size:18px;"></i>
+                    </div>
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
@@ -600,15 +601,15 @@
                 </select>
             </div>
 
-            <!-- File Upload -->
-            <div class="mb-3">
-                <label for="materialFile" class="form-label">File <span class="text-danger">*</span></label>
-                <input type="file" class="form-control" id="materialFile" name="file" required>
+            <!-- File Upload (optional for quizzes) -->
+            <div class="mb-3" id="fileUploadGroup">
+                <label for="materialFile" class="form-label">File <span class="text-danger" id="fileRequiredStar">*</span></label>
+                <input type="file" class="form-control" id="materialFile" name="file">
                 <div class="form-text">
                 <i class="fas fa-info-circle me-1"></i>
                 Max size: 50MB. Allowed types: PDF, DOC, DOCX, PPT, PPTX, MP4, AVI, MOV, ZIP
                 </div>
-                <div class="invalid-feedback">Please select a file.</div>
+                <div class="invalid-feedback" id="fileInvalidFeedback">Please select a file.</div>
             </div>
 
             <!-- File Preview -->
@@ -664,4 +665,32 @@
     </div>
     </div>
 </div>
+<script>
+// Toggle file input visibility/requirement when material type changes
+document.addEventListener('DOMContentLoaded', function() {
+    const materialType = document.getElementById('materialType');
+    const fileGroup = document.getElementById('fileUploadGroup');
+    const fileInput = document.getElementById('materialFile');
+    const fileRequiredStar = document.getElementById('fileRequiredStar');
+
+    function updateFileField() {
+        const val = materialType.value;
+        if (val === 'quiz') {
+            // Quizzes do not require a file
+            fileGroup.style.display = 'none';
+            fileInput.removeAttribute('required');
+            if (fileRequiredStar) fileRequiredStar.style.display = 'none';
+        } else {
+            fileGroup.style.display = '';
+            fileInput.setAttribute('required', 'required');
+            if (fileRequiredStar) fileRequiredStar.style.display = '';
+        }
+    }
+
+    if (materialType) {
+        materialType.addEventListener('change', updateFileField);
+        updateFileField();
+    }
+});
+</script>
 {% endblock %}
