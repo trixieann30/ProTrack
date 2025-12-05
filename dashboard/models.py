@@ -97,7 +97,13 @@ class TrainingCourse(models.Model):
             return 0
         completed = self.enrollments.filter(status='completed').count()
         return round((completed / total) * 100, 1)
+    
+    def get_user_enrollment(self, user):
+        return self.enrollments.filter(user=user).first()
 
+    def is_user_actively_enrolled(self, user):
+        enrollment = self.get_user_enrollment(user)
+        return enrollment and enrollment.status in ['enrolled', 'in_progress']
 
 class TrainingSession(models.Model):
     """Scheduled sessions for training courses"""
