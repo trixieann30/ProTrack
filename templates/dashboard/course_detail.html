@@ -8,7 +8,8 @@
 .course-header {
     background: var(--primary-gradient);
     color: white;
-    padding: 3rem 0;
+    padding: 1.5rem 0;
+    padding-left: 2rem;
     border-radius: var(--radius-xl);
     margin-bottom: 2rem;
 }
@@ -111,9 +112,6 @@
     <div class="container-fluid">
         <div class="row align-items-center">
             <div class="col-lg-8">
-                <a href="{% url 'dashboard:training_catalog' %}" class="text-white text-decoration-none mb-3 d-inline-block">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Catalog
-                </a>
                 <h1 class="mb-3">{{ course.title }}</h1>
                 <p class="mb-3" style="font-size: 1.1rem; opacity: 0.9;">{{ course.description|truncatewords:30 }}</p>
                 <div class="d-flex gap-3 flex-wrap">
@@ -133,7 +131,9 @@
             <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
                 <div class="d-flex justify-content-end align-items-center">
                     {% if user.is_superuser %}
-                        <a href="{% url 'dashboard:edit_course' course.id %}" class="btn btn-outline-light me-3">
+                        <a href="{% url 'dashboard:edit_course' course.id %}" 
+                        class="btn me-3" 
+                        style="background-color: #10b981; color: white; font-weight: 700;">
                             <i class="fas fa-pencil-alt me-2"></i>Edit Course
                         </a>
                     {% endif %}

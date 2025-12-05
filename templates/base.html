@@ -14,13 +14,24 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2.0">
     
     {% block extra_css %}{% endblock %}
+
+    <style>
+        /* Sticky footer layout */
+        html, body {
+            height: 100%;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        main {
+            flex: 1 0 auto; /* grow main content */
+        }
+        footer {
+            flex-shrink: 0; /* prevent footer from shrinking */
+        }
+    </style>
 </head>
-<script>
-// Override main.js if needed
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page type:', document.title);
-});
-</script>
 <body>
     <!-- Navigation -->
     <nav class="auth-wrapper">
@@ -49,12 +60,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <!-- Main Content -->
     <main class="py-4">
-        {% block content %}
-        {% endblock %}
+        {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark text-white text-center py-3 mt-5">
+    <footer class="bg-dark text-white text-center py-3">
         <div class="container">
             <p>&copy; 2025 ProTrack. All rights reserved.</p>
         </div>
@@ -62,17 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <!-- <script src="{% static 'js/main.js' %}"></script> -->
     
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-
-<style>
-.py-4 {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-</style>

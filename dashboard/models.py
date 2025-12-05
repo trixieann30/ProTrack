@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.urls import reverse
+from django.core.mail import send_mail
 
 
 class TrainingCategory(models.Model):
@@ -96,7 +97,13 @@ class TrainingCourse(models.Model):
             return 0
         completed = self.enrollments.filter(status='completed').count()
         return round((completed / total) * 100, 1)
+    
+    def get_user_enrollment(self, user):
+        return self.enrollments.filter(user=user).first()
 
+    def is_user_actively_enrolled(self, user):
+        enrollment = self.get_user_enrollment(user)
+        return enrollment and enrollment.status in ['enrolled', 'in_progress']
 
 class TrainingSession(models.Model):
     """Scheduled sessions for training courses"""
@@ -165,6 +172,9 @@ class Enrollment(models.Model):
         self.status = 'cancelled'
         self.save()
 
+    def get_absolute_url(self):
+        return reverse('dashboard:enrollment_detail', args=[self.id])
+
 
 class TrainingMaterial(models.Model):
     """Training materials/resources for courses (US-07)"""
@@ -219,6 +229,9 @@ class Certificate(models.Model):
     
     def __str__(self):
         return f"Certificate {self.certificate_number} - {self.enrollment.user.username}"
+    
+    def get_absolute_url(self):
+        return reverse('dashboard:certificate_detail', args=[self.id])
 
 class Quiz(models.Model):
     material = models.OneToOneField(TrainingMaterial, on_delete=models.CASCADE, related_name='quiz')
@@ -372,10 +385,14 @@ class Notification(models.Model):
     
     def get_related_object_title(self):
         related_object = self.get_related_object()
-        if related_object:
-            return related_object.title
-        else:
-            return None
+
+        if isinstance(related_object, Enrollment):
+            return related_object.course.title
+
+        if isinstance(related_object, Certificate):
+            return related_object.enrollment.course.title
+
+        return None
 
     def get_related_object_user(self):
         related_object = self.get_related_object()

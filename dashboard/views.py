@@ -391,29 +391,22 @@ def certifications(request):
 
 @login_required
 def training_catalog(request):
-    """Display all available training courses"""
     courses = TrainingCourse.objects.filter(status='active')
     categories = TrainingCategory.objects.all()
     
-    # Filter by user's program (for students and employees)
     if not request.user.is_superuser and request.user.program:
-        # Show courses for user's program OR courses for ALL programs
         courses = courses.filter(
-            Q(target_programs='ALL') | 
-            Q(target_programs__icontains=request.user.program)
+            Q(target_programs='ALL') | Q(target_programs__icontains=request.user.program)
         )
-    
-    # Filter by category if provided
+
     category_id = request.GET.get('category')
     if category_id:
         courses = courses.filter(category_id=category_id)
-    
-    # Filter by level if provided
+
     level = request.GET.get('level')
     if level:
         courses = courses.filter(level=level)
-    
-    # Search functionality
+
     search_query = request.GET.get('search')
     if search_query:
         courses = courses.filter(
@@ -422,21 +415,25 @@ def training_catalog(request):
             Q(instructor__icontains=search_query)
         )
 
-    # Get user's enrollments to show status on catalog page
+    # Get user's active enrollments
     user_enrollments = []
     if request.user.is_authenticated:
-        user_enrollments = Enrollment.objects.filter(user=request.user).values_list('course_id', flat=True)
-    
+        user_enrollments = Enrollment.objects.filter(
+            user=request.user,
+            status__in=['pending', 'enrolled', 'in_progress']
+        ).values_list('course_id', flat=True)
+
     context = {
         'courses': courses,
         'categories': categories,
-        'selected_category': category_id,
-        'selected_level': level,
-        'search_query': search_query,
         'user_enrollments': user_enrollments,
+        'search_query': search_query,
+        'category_filter': category_id,
+        'level_filter': level,
+        'course_levels': TrainingCourse.LEVEL_CHOICES,
+        'total_courses': courses.count(),
     }
     return render(request, 'dashboard/training_catalog.html', context)
-
 
 @login_required
 def course_detail(request, course_id):
