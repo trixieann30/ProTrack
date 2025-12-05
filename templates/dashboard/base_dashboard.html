@@ -93,11 +93,7 @@
                 </a>
             </li>
             {% if user.is_superuser %}
-            <!-- Assign Training removed -->
-                    <i class="fas fa-user-plus"></i>
-                    <span>Assign Training</span>
-                </a>
-            </li>
+            <!-- Admin-only menu items can be added here if needed -->
             {% endif %}
             <li class="sidebar-menu-item">
                 <a href="{% url 'dashboard:certifications' %}" class="sidebar-menu-link {% if request.resolver_match.url_name == 'certifications' %}active{% endif %}">
