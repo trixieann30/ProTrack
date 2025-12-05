@@ -1846,7 +1846,7 @@ def upload_material(request, course_id):
                 file_name='quiz.json',
                 file_size=0,
                 uploaded_by=request.user,
-                is_required=request.POST.get('is_required') == 'on',
+                is_required=True,  # All materials are required for course completion
                 order=int(request.POST.get('order', 0))
             )
             
@@ -1891,7 +1891,7 @@ def upload_material(request, course_id):
         # Validate file type
         allowed_extensions = {
             'document': ['.pdf', '.doc', '.docx', '.txt'],
-            'video': ['.mp4', '.avi', '.mov', '.wmv'],
+            'video': ['.mp4', '.avi', '.mov', '.wmv', '.webm'],
             'presentation': ['.ppt', '.pptx'],
             'other': ['.zip', '.rar']
         }
@@ -1900,6 +1900,7 @@ def upload_material(request, course_id):
         valid_extensions = allowed_extensions.get(material_type, [])
         
         if valid_extensions and file_ext not in valid_extensions:
+            logger.warning(f"Invalid file type uploaded: {file_ext} for material type {material_type}")
             return JsonResponse({
                 'success': False,
                 'error': f'Invalid file type for {material_type}. Allowed: {", ".join(valid_extensions)}'
@@ -1924,7 +1925,7 @@ def upload_material(request, course_id):
             file_name=uploaded_file.name,
             file_size=uploaded_file.size,
             uploaded_by=request.user,
-            is_required=request.POST.get('is_required') == 'on',
+            is_required=True,  # All materials are required for course completion
             order=int(request.POST.get('order', 0))
         )
         
@@ -1963,6 +1964,80 @@ def upload_material(request, course_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def edit_material(request, material_id):
+    """
+    Admin view to edit an existing training material
+    """
+    material = get_object_or_404(TrainingMaterial, id=material_id)
+
+    if request.method == 'POST':
+        try:
+            # Update basic fields
+            material.title = request.POST.get('title', material.title)
+            material.description = request.POST.get('description', material.description)
+            material.order = int(request.POST.get('order', material.order))
+
+            # Handle file replacement for non-quiz materials
+            if material.material_type != 'quiz' and 'file' in request.FILES:
+                uploaded_file = request.FILES['file']
+
+                # Validate file size (50MB)
+                MAX_SIZE = 50 * 1024 * 1024
+                if uploaded_file.size > MAX_SIZE:
+                    messages.error(request, f'File size exceeds 50MB limit (got {uploaded_file.size / (1024*1024):.1f}MB)')
+                    return redirect('dashboard:edit_material', material_id=material.id)
+
+                # Validate file type
+                allowed_extensions = {
+                    'document': ['.pdf', '.doc', '.docx', '.txt'],
+                    'video': ['.mp4', '.avi', '.mov', '.wmv', '.webm'],
+                    'presentation': ['.ppt', '.pptx'],
+                    'other': ['.zip', '.rar']
+                }
+
+                file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+                valid_extensions = allowed_extensions.get(material.material_type, [])
+
+                if valid_extensions and file_ext not in valid_extensions:
+                    messages.error(request, f'Invalid file type for {material.material_type}. Allowed: {", ".join(valid_extensions)}')
+                    return redirect('dashboard:edit_material', material_id=material.id)
+
+                # Delete old file from Supabase if it exists
+                if material.file_url:
+                    success, error = delete_training_material(material.file_url)
+                    if not success:
+                        logger.warning(f"Failed to delete old file from Supabase: {error}")
+
+                # Upload new file to Supabase
+                success, file_url, error = upload_training_material(material.course.id, uploaded_file)
+
+                if not success:
+                    messages.error(request, f'Failed to upload new file: {error}')
+                    return redirect('dashboard:edit_material', material_id=material.id)
+
+                # Update file information
+                material.file_url = file_url
+                material.file_name = uploaded_file.name
+                material.file_size = uploaded_file.size
+
+            material.save()
+            messages.success(request, f'Material "{material.title}" updated successfully.')
+            return redirect('dashboard:course_detail', course_id=material.course.id)
+
+        except Exception as e:
+            logger.error(f"Edit material error: {str(e)}", exc_info=True)
+            messages.error(request, f'Error updating material: {str(e)}')
+            return redirect('dashboard:edit_material', material_id=material.id)
+
+    context = {
+        'material': material,
+        'course': material.course,
+    }
+    return render(request, 'dashboard/edit_material.html', context)
 
 
         # Delete Material View
@@ -2313,7 +2388,7 @@ def view_material(request, enrollment_id, material_id):
     file_extension = os.path.splitext(material.file_name)[1].lower()
     
     # Determine if file is viewable
-    viewable_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.mp4', '.webm']
+    viewable_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.mp4', '.webm', '.wmv']
     is_viewable = file_extension in viewable_extensions
     
     context = {
