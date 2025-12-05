@@ -996,61 +996,6 @@ def edit_course(request, course_id):
         'level_choices': level_choices,
     }
     return render(request, 'dashboard/edit_course.html', context)
-@user_passes_test(is_superuser)
-def assign_training(request):
-    """Admin view to add a new task (TrainingMaterial) to a course."""
-    if request.method == 'POST':
-        course_id = request.POST.get('course_id')
-        title = request.POST.get('title')
-        description = request.POST.get('description')
-        material_type = request.POST.get('material_type')
-        order = request.POST.get('order', 0)
-
-        try:
-            course = get_object_or_404(TrainingCourse, id=course_id)
-
-            # Create the new training material
-            new_material = TrainingMaterial.objects.create(
-                course=course,
-                title=title,
-                description=description,
-                material_type=material_type,
-                order=order
-            )
-
-            # Notify enrolled users and update their progress
-            enrollments = Enrollment.objects.filter(course=course, status__in=['enrolled', 'in_progress'])
-            for enrollment in enrollments:
-                # Create a notification for the user
-                Notification.objects.create(
-                    user=enrollment.user,
-                    notification_type='new_material',
-                    title=f'New Task Added to {course.title}',
-                    message=f'A new task, "{title}", has been added to the course you are enrolled in.',
-                    link=reverse('dashboard:course_detail', args=[course.id])
-                )
-
-                # Recalculate progress percentage
-                total_materials = course.materials.count()
-                if total_materials > 0:
-                    completed_count = enrollment.completed_materials.count()
-                    progress = round((completed_count / total_materials) * 100)
-                    enrollment.progress_percentage = progress
-                    enrollment.save()
-
-            messages.success(request, f'Successfully added task "{title}" to {course.title} and notified {enrollments.count()} users.')
-            return redirect('dashboard:course_detail', course_id=course.id)
-
-        except Exception as e:
-            messages.error(request, f'Error adding task: {str(e)}')
-            return redirect('dashboard:assign_training')
-
-    # GET request - show the form
-    courses = TrainingCourse.objects.filter(status='active')
-    context = {
-        'courses': courses,
-    }
-    return render(request, 'dashboard/assign_training.html', context)
 
 @login_required
 @user_passes_test(is_superuser)

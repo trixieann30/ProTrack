@@ -38,8 +38,6 @@ urlpatterns = [
     # Quiz
     path('training/quiz/<int:quiz_id>/take/', views.take_quiz, name='take_quiz'),
     
-    # Admin: Assign training
-    path('training/assign/', views.assign_training, name='assign_training'),
     path('api/course/<int:course_id>/sessions/', views.get_course_sessions, name='get_course_sessions'),
     
     # Reports (US-03)
