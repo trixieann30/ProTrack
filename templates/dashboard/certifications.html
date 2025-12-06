@@ -162,16 +162,6 @@
             {% if user.is_superuser %}Certificate Management{% else %}My Certifications{% endif %}
         </h2>
     </div>
-    {% if user.is_superuser %}
-        <div class="d-flex gap-2">
-            <a href="{% url 'dashboard:admin_dashboard' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Admin Dashboard
-            </a>
-            <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-outline-primary">
-                <i class="fas fa-graduation-cap me-2"></i>Training Catalog
-            </a>
-        </div>
-    {% endif %}
 </div>
 
 <!-- Admin: Pending Certificates Alert -->
