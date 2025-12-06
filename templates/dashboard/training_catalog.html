@@ -192,14 +192,15 @@
     {% if user.is_superuser %}
     <!-- Assign Training removed -->
 
-        <a href="{% url 'dashboard:create_training' %}" class="btn btn-purple">
-            <i class="fas fa-plus me-1"></i>New Training
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard:create_training' %}" class="btn btn-purple">
+                <i class="fas fa-plus me-1"></i>New Training
+            </a>
 
-        <a href="{% url 'dashboard:archive_training' %}" class="btn btn-purple">
-            <i class="fas fa-archive me-1"></i>View Archive
-        </a>
-    </div>
+            <a href="{% url 'dashboard:archive_training' %}" class="btn btn-purple">
+                <i class="fas fa-archive me-1"></i>View Archive
+            </a>
+        </div>
     {% endif %}
 </div>
 
