@@ -101,12 +101,6 @@
                     <span>Certifications</span>
                 </a>
             </li>
-            <li class="sidebar-menu-item">
-                <a href="{% url 'dashboard:settings' %}" class="sidebar-menu-link">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
-                </a>
-            </li>
             {% if user.is_superuser %}
             <li class="sidebar-menu-item">
                 <a href="{% url 'dashboard:reports' %}" class="sidebar-menu-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
@@ -115,6 +109,12 @@
                 </a>
             </li>
             {% endif %}
+            <li class="sidebar-menu-item">
+                <a href="{% url 'dashboard:settings' %}" class="sidebar-menu-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
         </ul>
         
         <div class="sidebar-logout">
