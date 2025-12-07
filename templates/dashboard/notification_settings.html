@@ -5,8 +5,6 @@
 
 {% block extra_css %}
 <style>
-.breadcrumb { display: flex; gap: 0.5rem; color: #6b7280; margin-bottom: 1rem; }
-.breadcrumb a { color: #8b5cf6; text-decoration: none; }
 .settings-card { background: white; border-radius: 15px; padding: 2rem; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); max-width: 900px; }
 .settings-card h2 { font-size: 1.75rem; font-weight: 700; color: #1f2937; margin-bottom: 0.5rem; }
 .settings-card .subtitle { color: #6b7280; margin-bottom: 2rem; }
@@ -40,12 +38,6 @@
 {% endblock %}
 
 {% block content %}
-<div class="breadcrumb">
-    <a href="{% url 'dashboard:dashboard' %}">Dashboard</a> /
-    <a href="{% url 'dashboard:settings' %}">Settings</a> /
-    <span>Notification Settings</span>
-</div>
-
 <div class="settings-card">
     <h2>Notification Settings</h2>
     <p class="subtitle">Manage how you receive notifications and updates</p>
@@ -199,9 +191,6 @@
 
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
                 Save Preferences
             </button>
             <a href="{% url 'dashboard:settings' %}" class="btn btn-secondary">Cancel</a>

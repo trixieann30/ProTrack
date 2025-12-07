@@ -80,8 +80,9 @@
 <div class="notifications-container">
     {% if notifications %}
         {% for notification in notifications %}
-        <div class="notification-page-item {% if not notification.is_read %}unread{% endif %}"
-             onclick="handleNotificationClick({{ notification.id }}, '{{ notification.link }}')">
+            <div class="notification-page-item {% if not notification.is_read %}unread{% endif %}" 
+                data-id="{{ notification.id }}" 
+                data-link="{{ notification.link|escapejs }}">
             <div class="d-flex align-items-start">
                 <div class="notification-icon {{ notification.notification_type }} me-3">
                     {% if notification.notification_type == 'enrollment' %}
@@ -105,8 +106,7 @@
                     <p class="text-muted mb-0">{{ notification.message }}</p>
                 </div>
                 
-                <button class="btn btn-sm btn-outline-danger ms-3" 
-                        onclick="event.stopPropagation(); deleteNotification({{ notification.id }})">
+                <button class="btn btn-sm btn-outline-danger ms-3 delete-btn" data-id="{{ notification.id }}">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -122,57 +122,60 @@
 </div>
 
 <script>
-function handleNotificationClick(notifId, link) {
-    // Mark as read
-    fetch(`/dashboard/api/notifications/${notifId}/read/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        }
-    }).then(() => {
-        // Navigate if link provided
-        if (link && link !== '#') {
-            window.location.href = link;
-        } else {
-            // Reload to show updated state
-            location.reload();
+document.addEventListener('DOMContentLoaded', () => {
+    const notifications = document.querySelectorAll('.notification-page-item');
+
+    notifications.forEach(item => {
+        const notifId = item.dataset.id;
+        const link = item.dataset.link;
+
+        item.addEventListener('click', () => {
+            fetch(`/dashboard/api/notifications/${notifId}/read/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            }).then(() => {
+                if (link && link !== '#') window.location.href = link;
+                else location.reload();
+            });
+        });
+
+        const deleteBtn = item.querySelector('.delete-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (confirm('Delete this notification?')) {
+                    fetch(`/dashboard/api/notifications/${notifId}/delete/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => {
+                        const ct = response.headers.get('content-type') || '';
+                        if (ct.includes('application/json')) return response.json();
+                        window.location.reload();
+                    })
+                    .then(data => {
+                        if (data && data.success) location.reload();
+                    });
+                }
+            });
         }
     });
-}
 
-function deleteNotification(notifId) {
-    if (confirm('Delete this notification?')) {
-        fetch(`/dashboard/api/notifications/${notifId}/delete/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => {
-            const ct = response.headers.get('content-type') || '';
-            if (ct.includes('application/json')) return response.json();
-            window.location.reload();
-        })
-        .then(data => {
-            if (data && data.success) location.reload();
-        });
-    }
-}
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            document.cookie.split(';').forEach(cookie => {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                }
+            });
         }
+        return cookieValue;
     }
-    return cookieValue;
-}
+});
 </script>
 {% endblock %}
