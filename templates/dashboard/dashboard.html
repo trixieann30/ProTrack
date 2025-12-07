@@ -320,17 +320,6 @@
 
 {% block content %}
 
-<div class="welcome-section">
-<!-- Dynamic Welcome Message -->
-    <h2>
-        {% if user.last_login|timesince:user.date_joined|slice:":1"|add:"0" < 1 %}
-            Welcome, {{ user.get_full_name|default:user.username }}!
-        {% else %}
-            Welcome back, {{ user.get_full_name|default:user.username }}!
-        {% endif %}
-    </h2>
-</div>
-
 <!-- Stats Cards Row -->
 <div class="stats-row">
     <div class="stat-card">

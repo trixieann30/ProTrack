@@ -235,9 +235,24 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endblock %}
 
 {% block content %}
+
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-home me-2" style="color: var(--primary-color);"></i>
+            Dashboard
+        </h2>
+        <p></p>
+    </div>
+
 <!-- Welcome Banner -->
 <div class="welcome-banner">
-    <h2>Welcome back, {{ user.get_full_name|default:user.username }}! 👋</h2>
+    <h2>
+        {% if user.last_login|timesince:user.date_joined|slice:":1"|add:"0" < 1 %}
+            Welcome, {{ user.get_full_name|default:user.username }}! 👋
+        {% else %}
+            Welcome back, {{ user.get_full_name|default:user.username }}!
+        {% endif %}
+    </h2>
     <p>Here's what's happening with your training and certifications today.</p>
 </div>
 
