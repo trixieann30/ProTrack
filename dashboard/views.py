@@ -582,44 +582,47 @@ def enroll_course(request, course_id):
         return redirect('dashboard:my_training')
     
     return redirect('dashboard:training_catalog')
+
 @login_required
 def my_training(request):
     """Display user's enrolled training courses"""
-    
-    # Get all enrollments
+
     all_enrollments = Enrollment.objects.filter(
         user=request.user
     ).select_related('course', 'session').order_by('-enrolled_date')
-    
-    # Separate by status
-    active_enrollments = all_enrollments.filter(
-        status__in=['enrolled', 'in_progress']
-    )
-    
-    completed_enrollments = all_enrollments.filter(
-        status='completed'
-    )
-    
-    pending_enrollments = all_enrollments.filter(
-        status='pending'
-    )
-    
-    # Calculate statistics
+
+    active_enrollments = all_enrollments.filter(status__in=['enrolled', 'in_progress'])
+    completed_enrollments = all_enrollments.filter(status='completed')
+    pending_enrollments = all_enrollments.filter(status='pending')
+
+    # ----------------------------------------------------
+    # 🔥 FIX: Calculate completion rate for each enrollment
+    # ----------------------------------------------------
+    for enrollment in all_enrollments:
+        course = enrollment.course
+
+        total_items = course.materials.filter(is_required=True).count()
+        completed_items = enrollment.completed_materials.filter(is_required=True).count()
+
+        if total_items > 0:
+            enrollment.completion_rate = round((completed_items / total_items) * 100)
+        else:
+            enrollment.completion_rate = 0
+    # ----------------------------------------------------
+
     total_enrollments = all_enrollments.count()
     in_progress_count = active_enrollments.count()
     completed_count = completed_enrollments.count()
-    
-    # Calculate total hours (completed courses)
+
     total_hours = completed_enrollments.aggregate(
         total=Sum('course__duration_hours')
     )['total'] or 0
-    
-    # Calculate average score
+
     avg_score = completed_enrollments.filter(
         score__isnull=False
     ).aggregate(Avg('score'))['score__avg']
     avg_score = round(avg_score, 1) if avg_score else 0
-    
+
     context = {
         'enrollments': all_enrollments,
         'active_enrollments': active_enrollments,
@@ -631,8 +634,8 @@ def my_training(request):
         'total_hours': total_hours,
         'avg_score': avg_score,
     }
-    return render(request, 'dashboard/my_training.html', context)
 
+    return render(request, 'dashboard/my_training.html', context)
 
 @login_required
 def cancel_enrollment(request, enrollment_id):
@@ -1132,16 +1135,20 @@ def admin_users_list(request):
     """List all users with pagination and filtering"""
     users = CustomUser.objects.all().order_by('-created_at')
     
-    # Filter by user type
-    user_type = request.GET.get('user_type')
+    # Filters
+    search_query = request.GET.get('search', '').strip()
+    user_type = request.GET.get('user_type', '')
+    status = request.GET.get('status', '')
+
     if user_type:
         if user_type == 'admin':
             users = users.filter(is_superuser=True)
         else:
-            users = users.filter(user_type=user_type)
-    
-    # Search functionality
-    search_query = request.GET.get('search')
+            users = users.filter(user_type=user_type.lower())  # ensure lowercase match
+
+    if status:
+        users = users.filter(is_active=(status == 'active'))
+
     if search_query:
         users = users.filter(
             Q(username__icontains=search_query) |
@@ -1149,19 +1156,18 @@ def admin_users_list(request):
             Q(first_name__icontains=search_query) |
             Q(last_name__icontains=search_query)
         )
-    
-    # Pagination
+
     paginator = Paginator(users, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
         'user_type': user_type,
+        'status': status,
     }
     return render(request, 'dashboard/admin_users_list.html', context)
-
 
 @login_required
 @user_passes_test(is_superuser)

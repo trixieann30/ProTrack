@@ -226,31 +226,29 @@
 {% endif %}
 
 <div class="search-filter-section">
-    <form method="get" class="search-box">
-        <input type="text" name="search" placeholder="Search by username, email, or name..." value="{{ search_query }}">
-        <button type="submit" class="btn-primary">Search</button>
-    </form>
-    
-    <div class="filters">
-        <form method="get" style="display: flex; gap: 1rem;">
-            <select name="user_type" onchange="this.form.submit()">
+    <form method="get" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="search-box">
+            <input type="text" name="search" placeholder="Search by username, email, or name..." value="{{ search_query }}">
+            <button type="submit" class="btn-primary">Search</button>
+        </div>
+
+        <div class="filters" style="gap: 1rem;">
+            <select name="user_type">
                 <option value="">All User Types</option>
                 <option value="student" {% if user_type == 'student' %}selected{% endif %}>Students</option>
                 <option value="employee" {% if user_type == 'employee' %}selected{% endif %}>Employees</option>
                 <option value="admin" {% if user_type == 'admin' %}selected{% endif %}>Administrators</option>
             </select>
 
-            <select name="status" onchange="this.form.submit()">
+            <select name="status">
                 <option value="">All Status</option>
                 <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
                 <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
             </select>
 
-            {% if search_query %}
-                <input type="hidden" name="search" value="{{ search_query }}">
-            {% endif %}
-        </form>
-    </div>
+            <button type="submit" class="btn-primary">Filter</button>
+        </div>
+    </form>
 </div>
 
 

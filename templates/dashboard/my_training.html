@@ -262,10 +262,10 @@
                 <div class="progress-section">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="text-muted" style="font-size: 0.9rem;">Progress</span>
-                        <strong>{{ enrollment.progress_percentage }}%</strong>
+                        <strong>{{ enrollment.completion_rate|default:0 }}%</strong>
                     </div>
-                    <div class="progress-bar-fill"
-                        style="width: {{ enrollment.progress_percentage|default:0 }}%;">
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: {{ enrollment.completion_rate|default:0 }}%;"></div>
                     </div>
                 </div>
 
