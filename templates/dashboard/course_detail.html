@@ -163,11 +163,19 @@
 <div class="row">
     <!-- Main Content -->
     <div class="col-lg-8">
+        
         <!-- About Section -->
         <div class="section-card">
             <h2 class="section-title">About This Course</h2>
             <p style="line-height: 1.8; color: #6b7280;">{{ course.description }}</p>
         </div>
+
+        <!-- Learning Outcomes -->
+        <div class="section-card">
+            <h2 class="section-title">What You'll Learn</h2>
+            <div style="line-height: 1.8; color: #6b7280;">{{ course.learning_outcomes|linebreaks }}</div>
+        </div>
+
     <!-- Training Materials Section -->
         {% if materials or user.is_superuser %}
             <div class="section-card">
@@ -288,15 +296,15 @@
                             {% endif %}
                             
                             <!-- Completion Status (Read-only) -->
-                            {% if material.id in completed_materials_ids %}
-                                <button type="button" class="btn btn-sm btn-success" disabled>
-                                    <i class="fas fa-check-circle me-1"></i>Completed
-                                </button>
-                            {% else %}
-                                <span class="badge bg-secondary">
-                                    <i class="fas fa-clock me-1"></i>Not Started
-                                </span>
-                            {% endif %}
+                        {% if material.id in completed_materials_ids %}
+                            <button type="button" class="btn btn-sm btn-success" disabled style="border-radius: 0.375rem;">
+                                <i class="fas fa-check-circle me-1"></i>Completed
+                            </button>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-secondary" disabled style="border-radius: 0.375rem;">
+                                <i class="fas fa-clock me-1"></i>Not Started
+                            </button>
+                        {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -401,12 +409,6 @@
             padding: 0.5rem 1rem;
             }
             </style>
-
-        <!-- Learning Outcomes -->
-        <div class="section-card">
-            <h2 class="section-title">What You'll Learn</h2>
-            <div style="line-height: 1.8; color: #6b7280;">{{ course.learning_outcomes|linebreaks }}</div>
-        </div>
 
         <!-- Prerequisites -->
         {% if course.prerequisites %}
