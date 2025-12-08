@@ -423,10 +423,19 @@ def training_catalog(request):
             status__in=['pending', 'enrolled', 'in_progress']
         ).values_list('course_id', flat=True)
 
+    # Get user's completed courses
+    user_completed_courses = []
+    if request.user.is_authenticated:
+        user_completed_courses = Enrollment.objects.filter(
+            user=request.user,
+            status='completed'
+        ).values_list('course_id', flat=True)
+
     context = {
         'courses': courses,
         'categories': categories,
         'user_enrollments': user_enrollments,
+        'user_completed_courses': user_completed_courses,  # <-- add this
         'search_query': search_query,
         'category_filter': category_id,
         'level_filter': level,
