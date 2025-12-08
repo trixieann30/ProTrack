@@ -145,6 +145,15 @@
             Archived Courses
         </h2>
     </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+    
     {% if user.is_superuser %}
     <div class="d-flex gap-2">
         <a href="{% url 'dashboard:training_catalog' %}" class="btn btn-purple">
