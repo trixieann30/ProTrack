@@ -29,6 +29,11 @@
     color: white;
 }
 
+.form-select-height {
+    height: calc(2.5rem + 2px); /* Matches Bootstrap 5 default select height */
+    padding: 0.375rem 0.75rem;  /* Matches padding of select */
+}
+
 .course-card {
     background: white;
     border-radius: var(--radius-xl);
@@ -195,16 +200,12 @@
     <form method="get" class="row g-3 align-items-end">
         <div class="col-md-4">
             <label for="search_input" class="form-label">Search Courses</label>
-            <div class="search-bar">
-                <i class="fas fa-search"></i>
-                <input type="text" id="search_input" name="search" class="form-control" 
-                    placeholder="Search by title, instructor..." 
-                    value="{{ search_query }}">
-            </div>
+            <input type="text" id="search_input" name="search" class="form-control form-select-height" 
+                   placeholder="Search by title, instructor..." value="{{ search_query }}">
         </div>
         <div class="col-md-3">
             <label for="category_select" class="form-label">Category</label>
-            <select name="category" id="category_select" class="form-select">
+            <select name="category" id="category_select" class="form-select form-select-height">
                 <option value="">All Categories</option>
                 {% for category in categories %}
                     <option value="{{ category.id }}" {% if category.id|stringformat:"s" == category_filter %}selected{% endif %}>
@@ -215,7 +216,7 @@
         </div>
         <div class="col-md-3">
             <label for="level_select" class="form-label">Level</label>
-            <select name="level" id="level_select" class="form-select">
+            <select name="level" id="level_select" class="form-select form-select-height">
                 <option value="">All Levels</option>
                 {% for level_value, level_label in course_levels %}
                     <option value="{{ level_value }}" {% if level_value == level_filter %}selected{% endif %}>
@@ -225,7 +226,7 @@
             </select>
         </div>
         <div class="col-md-2 d-grid">
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary w-100">
                 <i class="fas fa-filter me-2"></i>Filter
             </button>
         </div>

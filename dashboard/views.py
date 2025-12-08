@@ -393,21 +393,22 @@ def certifications(request):
 def training_catalog(request):
     courses = TrainingCourse.objects.filter(status='active')
     categories = TrainingCategory.objects.all()
-    
+
+    search_query = request.GET.get('search', '').strip()
+    category_id = request.GET.get('category', '')
+    level = request.GET.get('level', '')
+
     if not request.user.is_superuser and request.user.program:
         courses = courses.filter(
             Q(target_programs='ALL') | Q(target_programs__icontains=request.user.program)
         )
 
-    category_id = request.GET.get('category')
     if category_id:
-        courses = courses.filter(category_id=category_id)
+        courses = courses.filter(category_id=int(category_id))
 
-    level = request.GET.get('level')
     if level:
         courses = courses.filter(level=level)
 
-    search_query = request.GET.get('search')
     if search_query:
         courses = courses.filter(
             Q(title__icontains=search_query) |
@@ -415,27 +416,22 @@ def training_catalog(request):
             Q(instructor__icontains=search_query)
         )
 
-    # Get user's active enrollments
-    user_enrollments = []
-    if request.user.is_authenticated:
-        user_enrollments = Enrollment.objects.filter(
-            user=request.user,
-            status__in=['pending', 'enrolled', 'in_progress']
-        ).values_list('course_id', flat=True)
+    # Get user's enrollments
+    user_enrollments = Enrollment.objects.filter(
+        user=request.user,
+        status__in=['pending', 'enrolled', 'in_progress']
+    ).values_list('course_id', flat=True)
 
-    # Get user's completed courses
-    user_completed_courses = []
-    if request.user.is_authenticated:
-        user_completed_courses = Enrollment.objects.filter(
-            user=request.user,
-            status='completed'
-        ).values_list('course_id', flat=True)
+    user_completed_courses = Enrollment.objects.filter(
+        user=request.user,
+        status='completed'
+    ).values_list('course_id', flat=True)
 
     context = {
         'courses': courses,
         'categories': categories,
         'user_enrollments': user_enrollments,
-        'user_completed_courses': user_completed_courses,  # <-- add this
+        'user_completed_courses': user_completed_courses,
         'search_query': search_query,
         'category_filter': category_id,
         'level_filter': level,
