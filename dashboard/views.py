@@ -446,42 +446,35 @@ def training_catalog(request):
 
 @login_required
 def course_detail(request, course_id):
-    """Display detailed information about a specific course"""
     course = get_object_or_404(TrainingCourse, id=course_id)
     
-    # Check if user is already enrolled
-    is_enrolled = Enrollment.objects.filter(
+    # Get enrollment if exists (including completed)
+    enrollment = Enrollment.objects.filter(
         user=request.user,
         course=course,
-        status__in=['pending', 'enrolled', 'in_progress']
-    ).exists()
+    ).first()  # Grab the first enrollment regardless of status
     
-    # Get enrollment if exists
-    enrollment = None
-    if is_enrolled:
-        enrollment = Enrollment.objects.filter(
-            user=request.user,
-            course=course,
-            status__in=['pending', 'enrolled', 'in_progress']
-        ).first()
+    # Check if user is enrolled or completed
+    is_enrolled = enrollment is not None and enrollment.status != 'completed'
+    has_completed = enrollment is not None and enrollment.status == 'completed'
     
-    # Calculate enrollment percentage (THIS IS NEW)
+    # Enrollment percentage
     if course.max_participants > 0:
         enrollment_percentage = round((course.enrolled_count / course.max_participants) * 100, 1)
     else:
         enrollment_percentage = 0
     
-    # Get upcoming sessions
+    # Upcoming sessions
     upcoming_sessions = course.sessions.filter(
         start_date__gte=timezone.now().date()
     ).order_by('start_date')[:5]
     
-    # Get recent enrollments (for admin)
+    # Recent enrollments (for admin)
     recent_enrollments = None
     if request.user.is_superuser:
         recent_enrollments = course.enrollments.select_related('user').order_by('-enrolled_date')[:10]
 
-    # Get training materials for the course
+    # Materials
     materials = course.materials.all().select_related('quiz').order_by('order')
     completed_materials_ids = []
     if enrollment:
@@ -489,14 +482,16 @@ def course_detail(request, course_id):
     
     context = {
         'course': course,
-        'is_enrolled': is_enrolled,
         'enrollment': enrollment,
-        'enrollment_percentage': enrollment_percentage,  
+        'is_enrolled': is_enrolled,          # for "Already Enrolled"
+        'has_completed': has_completed,      # for "Course Completed"
+        'enrollment_percentage': enrollment_percentage,
         'upcoming_sessions': upcoming_sessions,
         'recent_enrollments': recent_enrollments,
         'materials': materials,
         'completed_materials_ids': completed_materials_ids,
     }
+    
     return render(request, 'dashboard/course_detail.html', context)
 
 @login_required
