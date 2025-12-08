@@ -214,27 +214,28 @@ def archived_courses(request, course_id):
     return redirect('dashboard:training_catalog')  # Redirect back to catalog
 
 @login_required
-@user_passes_test(is_superuser)
 def archive_training(request):
     search_query = request.GET.get('search', '')
     category_filter = request.GET.get('category', '')
 
-    # Only archived courses
-    courses = TrainingModule.objects.filter(status='archived')
+    courses = TrainingMaterial.objects.filter(is_archived=True)
 
     if search_query:
-        courses = courses.filter(title__icontains=search_query)
+        courses = courses.filter(
+            Q(title__icontains=search_query) |
+            Q(instructor__icontains=search_query)
+        )
 
     if category_filter:
-        courses = courses.filter(category__icontains=category_filter)
+        courses = courses.filter(category_id=category_filter)
 
-    categories = TrainingCategory.objects.all()
+    categories = TrainingCategory.objects.all()  # Make sure this returns categories
 
     context = {
         'courses': courses,
+        'categories': categories,  # Must pass categories here
         'search_query': search_query,
         'category_filter': category_filter,
-        'categories': categories,
     }
     return render(request, 'dashboard/archive_training.html', context)
 
