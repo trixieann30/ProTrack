@@ -70,6 +70,14 @@
         </a>
     </div>
     
+    <!-- Admin Viewing Banner -->
+    {% if is_admin_viewing %}
+    <div class="alert alert-info mb-3">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Admin Preview Mode:</strong> You are viewing this material as an administrator. Progress tracking is disabled.
+    </div>
+    {% endif %}
+    
     <!-- Completion Banner -->
     <div id="completionBanner" class="completion-banner {% if is_completed %}show{% endif %}">
         <div class="d-flex align-items-center">
@@ -122,7 +130,7 @@
             </div>
             
             <!-- Auto-mark complete after viewing -->
-            {% if not is_completed %}
+            {% if not is_completed and not is_admin_viewing %}
                 <div class="alert alert-info mt-3">
                     <i class="fas fa-info-circle me-2"></i>
                     This material will be automatically marked as complete after you've viewed it.
@@ -148,10 +156,12 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('View material page loaded');
     const isCompleted = JSON.parse('{{ is_completed|lower }}');
     const isViewable = JSON.parse('{{ is_viewable|lower }}');
+    const isAdminViewing = JSON.parse('{{ is_admin_viewing|yesno:"true,false"|lower }}');
 
-    console.log('isCompleted:', isCompleted, 'isViewable:', isViewable);
+    console.log('isCompleted:', isCompleted, 'isViewable:', isViewable, 'isAdminViewing:', isAdminViewing);
 
-    if (!isCompleted && isViewable) {
+    // Skip auto-completion for admins viewing other users' materials
+    if (!isCompleted && isViewable && !isAdminViewing) {
         console.log('Setting up auto-completion tracking');
         // Track viewing time
         let viewingTime = 0;

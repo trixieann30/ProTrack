@@ -1,0 +1,102 @@
+{% extends 'dashboard/base_dashboard.html' %}
+
+{% block title %}Quiz Results: {{ quiz.title }} - ProTrack{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Back Button -->
+    <a href="{% url 'dashboard:course_detail' enrollment.course.id %}" class="btn btn-outline-secondary mb-4">
+        <i class="fas fa-arrow-left me-2"></i>Back to Course
+    </a>
+
+    <!-- Score Summary Card -->
+    <div class="card mb-4 {% if passed %}border-success{% else %}border-warning{% endif %}">
+        <div class="card-header {% if passed %}bg-success text-white{% else %}bg-warning{% endif %}">
+            <h4 class="mb-0">
+                {% if passed %}
+                    <i class="fas fa-check-circle me-2"></i>Quiz Passed!
+                {% else %}
+                    <i class="fas fa-exclamation-circle me-2"></i>Quiz Not Passed
+                {% endif %}
+            </h4>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <h2 class="{% if passed %}text-success{% else %}text-warning{% endif %}">{{ percentage_score }}%</h2>
+                    <p class="text-muted mb-0">Your Score</p>
+                </div>
+                <div class="col-md-3">
+                    <h2>{{ score }}/{{ total_questions }}</h2>
+                    <p class="text-muted mb-0">Correct Answers</p>
+                </div>
+                <div class="col-md-3">
+                    <h2>{{ pass_mark }}%</h2>
+                    <p class="text-muted mb-0">Pass Mark</p>
+                </div>
+                <div class="col-md-3">
+                    {% if passed %}
+                        <h2 class="text-success"><i class="fas fa-trophy"></i></h2>
+                        <p class="text-muted mb-0">Material Completed</p>
+                    {% else %}
+                        <a href="{% url 'dashboard:take_quiz' quiz.id %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-redo me-2"></i>Try Again
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Review Section -->
+    <h3 class="mb-4"><i class="fas fa-list-check me-2"></i>Review Your Answers</h3>
+    
+    {% for result in results %}
+    <div class="card mb-3 {% if result.is_correct %}border-success{% else %}border-danger{% endif %}">
+        <div class="card-header d-flex justify-content-between align-items-center {% if result.is_correct %}bg-success bg-opacity-10{% else %}bg-danger bg-opacity-10{% endif %}">
+            <h5 class="mb-0">
+                <span class="badge {% if result.is_correct %}bg-success{% else %}bg-danger{% endif %} me-2">
+                    {% if result.is_correct %}<i class="fas fa-check"></i>{% else %}<i class="fas fa-times"></i>{% endif %}
+                </span>
+                Question {{ forloop.counter }}
+            </h5>
+            <small class="text-muted">({{ result.question.get_question_type_display }})</small>
+        </div>
+        <div class="card-body">
+            <p class="fs-5 mb-3"><strong>{{ result.question.text }}</strong></p>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="p-3 rounded {% if result.is_correct %}bg-success bg-opacity-10{% else %}bg-danger bg-opacity-10{% endif %}">
+                        <small class="text-muted d-block mb-1">Your Answer:</small>
+                        <strong>{{ result.user_answer|default:"No answer provided" }}</strong>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded bg-light">
+                        <small class="text-muted d-block mb-1">Correct Answer:</small>
+                        <strong class="text-success">{{ result.correct_answer }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Action Buttons -->
+    <div class="d-flex justify-content-between mt-4 mb-5">
+        <a href="{% url 'dashboard:course_detail' enrollment.course.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Course
+        </a>
+        {% if not passed %}
+        <a href="{% url 'dashboard:take_quiz' quiz.id %}" class="btn btn-primary">
+            <i class="fas fa-redo me-2"></i>Retry Quiz
+        </a>
+        {% else %}
+        <a href="{% url 'dashboard:my_training' %}" class="btn btn-success">
+            <i class="fas fa-graduation-cap me-2"></i>Continue Training
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
