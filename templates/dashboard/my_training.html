@@ -10,7 +10,7 @@
 */
 :root {
     --primary-color: #007bff; /* Example: Bootstrap Blue */
-    --primary-gradient: linear-gradient(to right, #007bff, #00c6ff); 
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
     --dark-color: #333;
     --radius-xl: 1rem;
     --radius-md: 0.5rem;
@@ -167,7 +167,7 @@
 
     <div class="stat-card">
         <div class="stat-info">
-            <h3>{{ total_completed }}</h3>
+            <h3>{{ completed_count }}</h3>
             <p>Completed</p>
             <span class="stat-change">
                 <i class="fas fa-check-circle"></i> Done
@@ -264,8 +264,8 @@
                         <span class="text-muted" style="font-size: 0.9rem;">Progress</span>
                         <strong>{{ enrollment.progress_percentage }}%</strong>
                     </div>
-                    <div class="progress-bar">
-                        <div class="progress-bar-fill" style="width: {{ enrollment.progress_percentage }}%;"></div>
+                    <div class="progress-bar-fill"
+                        style="width: {{ enrollment.progress_percentage|default:0 }}%;">
                     </div>
                 </div>
 

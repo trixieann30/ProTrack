@@ -164,6 +164,14 @@
     </div>
 </div>
 
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
 <!-- Admin: Pending Certificates Alert -->
 {% if user.is_superuser and pending_count > 0 %}
 <div class="pending-badge">
