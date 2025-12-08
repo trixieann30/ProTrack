@@ -202,7 +202,7 @@
                         </div>
                         <p class="course-description">{{ course.description|safe }}</p>
                         <div class="course-footer mt-auto">
-                            <form method="post" action="{% url 'dashboard:archive_course' course.id %}">
+                            <form method="post" action="{% url 'dashboard:restore_course' course.id %}">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-sm btn-success">
                                     <i class="fas fa-undo me-1"></i>Restore

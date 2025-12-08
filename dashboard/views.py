@@ -87,16 +87,37 @@ def user_dashboard(request):
     enrollments = Enrollment.objects.filter(user=user).select_related('course', 'session')
     
     # Active enrollments (in progress) - exclude cancelled
-    active_enrollments = enrollments.filter(
+    # Convert to list immediately to preserve calculated attributes
+    active_enrollments = list(enrollments.filter(
         status__in=['enrolled', 'in_progress']
-    ).order_by('-enrolled_date')[:5]
+    ).order_by('-enrolled_date')[:5])
     
-    # Completed enrollments
+    # Calculate completion rate for each active enrollment (same as my_training)
+    # Also sync status with progress
+    for enrollment in active_enrollments:
+        course = enrollment.course
+        total_items = course.materials.filter(is_required=True).count()
+        completed_items = enrollment.completed_materials.filter(is_required=True).count()
+        if total_items > 0:
+            enrollment.completion_rate = round((completed_items / total_items) * 100)
+        else:
+            # Fall back to progress_percentage if no required materials
+            enrollment.completion_rate = enrollment.progress_percentage
+        
+        # Auto-sync: If progress is 100% but status is not completed, update it
+        if enrollment.completion_rate == 100 and enrollment.status not in ['completed', 'cancelled']:
+            enrollment.status = 'completed'
+            enrollment.completion_date = timezone.now().date()
+            enrollment.progress_percentage = 100
+            enrollment.save()
+    
+    # Completed enrollments - refresh after potential status updates
     completed_enrollments = enrollments.filter(status='completed')
     
     # Statistics - REAL-TIME CALCULATION
     total_enrollments = enrollments.exclude(status='cancelled').count()  # Exclude cancelled
-    in_progress_count = enrollments.filter(status='in_progress').count()
+    # Count BOTH 'enrolled' and 'in_progress' as active/in-progress
+    in_progress_count = enrollments.filter(status__in=['enrolled', 'in_progress']).count()
     completed_count = completed_enrollments.count()
     
     # Calculate completion rate
@@ -175,6 +196,20 @@ def user_dashboard(request):
             'priority': 'medium'
         })
     
+    # Check for incomplete courses with progress (to encourage completion)
+    incomplete_with_progress = enrollments.filter(
+        status__in=['enrolled', 'in_progress']
+    ).exclude(progress_percentage=0).count()
+    
+    if incomplete_with_progress > 0 and in_progress_count == 0:  # Only show if not already showing "Continue Learning"
+        quick_actions.append({
+            'title': 'Complete Your Courses',
+            'description': f'{incomplete_with_progress} course(s) with progress',
+            'icon': 'fa-tasks',
+            'url': 'dashboard:my_training',
+            'priority': 'medium'
+        })
+    
     context = {
         'user': user,
         'active_enrollments': active_enrollments,
@@ -212,32 +247,6 @@ def archived_courses(request, course_id):
         course.status = 'archived'
         course.save()
     return redirect('dashboard:training_catalog')  # Redirect back to catalog
-
-@login_required
-def archive_training(request):
-    search_query = request.GET.get('search', '')
-    category_filter = request.GET.get('category', '')
-
-    courses = TrainingMaterial.objects.filter(is_archived=True)
-
-    if search_query:
-        courses = courses.filter(
-            Q(title__icontains=search_query) |
-            Q(instructor__icontains=search_query)
-        )
-
-    if category_filter:
-        courses = courses.filter(category_id=category_filter)
-
-    categories = TrainingCategory.objects.all()  # Make sure this returns categories
-
-    context = {
-        'courses': courses,
-        'categories': categories,  # Must pass categories here
-        'search_query': search_query,
-        'category_filter': category_filter,
-    }
-    return render(request, 'dashboard/archive_training.html', context)
 
 @login_required
 @user_passes_test(is_superuser)
@@ -335,11 +344,28 @@ def archive_course(request, course_id):
 @login_required
 @user_passes_test(is_superuser)
 def archive_training(request):
-    """Admin view to list all courses and allow archiving (optional page)."""
+    """Admin view to list all archived courses with search and filter."""
+    search_query = request.GET.get('search', '')
+    category_filter = request.GET.get('category', '')
+
     courses = TrainingCourse.objects.filter(status='archived')
-    
+
+    if search_query:
+        courses = courses.filter(
+            Q(title__icontains=search_query) |
+            Q(instructor__icontains=search_query)
+        )
+
+    if category_filter:
+        courses = courses.filter(category_id=category_filter)
+
+    categories = TrainingCategory.objects.all()
+
     context = {
         'courses': courses,
+        'categories': categories,
+        'search_query': search_query,
+        'category_filter': category_filter,
     }
     return render(request, 'dashboard/archive_training.html', context)
 
@@ -584,16 +610,12 @@ def enroll_course(request, course_id):
 def my_training(request):
     """Display user's enrolled training courses"""
 
-    all_enrollments = Enrollment.objects.filter(
+    all_enrollments = list(Enrollment.objects.filter(
         user=request.user
-    ).select_related('course', 'session').order_by('-enrolled_date')
-
-    active_enrollments = all_enrollments.filter(status__in=['enrolled', 'in_progress'])
-    completed_enrollments = all_enrollments.filter(status='completed')
-    pending_enrollments = all_enrollments.filter(status='pending')
+    ).select_related('course', 'session').order_by('-enrolled_date'))
 
     # ----------------------------------------------------
-    # 🔥 FIX: Calculate completion rate for each enrollment
+    # FIX: Calculate completion rate for each enrollment and sync status
     # ----------------------------------------------------
     for enrollment in all_enrollments:
         course = enrollment.course
@@ -604,21 +626,32 @@ def my_training(request):
         if total_items > 0:
             enrollment.completion_rate = round((completed_items / total_items) * 100)
         else:
-            enrollment.completion_rate = 0
+            # Fall back to progress_percentage if no required materials
+            enrollment.completion_rate = enrollment.progress_percentage
+        
+        # Auto-sync: If progress is 100% but status is not completed, update it
+        if enrollment.completion_rate == 100 and enrollment.status not in ['completed', 'cancelled']:
+            enrollment.status = 'completed'
+            enrollment.completion_date = timezone.now().date()
+            enrollment.progress_percentage = 100
+            enrollment.save()
     # ----------------------------------------------------
+    
+    # Filter from the list (preserves completion_rate attribute)
+    active_enrollments = [e for e in all_enrollments if e.status in ['enrolled', 'in_progress']]
+    completed_enrollments = [e for e in all_enrollments if e.status == 'completed']
+    pending_enrollments = [e for e in all_enrollments if e.status == 'pending']
 
-    total_enrollments = all_enrollments.count()
-    in_progress_count = active_enrollments.count()
-    completed_count = completed_enrollments.count()
+    total_enrollments = len(all_enrollments)
+    in_progress_count = len(active_enrollments)
+    completed_count = len(completed_enrollments)
 
-    total_hours = completed_enrollments.aggregate(
-        total=Sum('course__duration_hours')
-    )['total'] or 0
+    # Calculate total hours from completed enrollments
+    total_hours = sum(e.course.duration_hours for e in completed_enrollments if e.course.duration_hours) or 0
 
-    avg_score = completed_enrollments.filter(
-        score__isnull=False
-    ).aggregate(Avg('score'))['score__avg']
-    avg_score = round(avg_score, 1) if avg_score else 0
+    # Calculate average score
+    scores = [e.score for e in completed_enrollments if e.score is not None]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else 0
 
     context = {
         'enrollments': all_enrollments,
@@ -737,12 +770,7 @@ def take_quiz(request, quiz_id):
         passed = percentage_score >= quiz.pass_mark
         
         if passed:
-            messages.success(
-                request,
-                f'Congratulations! You passed with {percentage_score}% (Pass mark: {quiz.pass_mark}%). Score: {score}/{total_questions}'
-            )
-            
-            # FIX: Mark quiz material as complete
+            # Mark quiz material as complete ONLY if passed
             enrollment.completed_materials.add(quiz.material)
             
             # Update progress
@@ -752,7 +780,7 @@ def take_quiz(request, quiz_id):
                 progress = round((completed_count / total_materials) * 100)
                 enrollment.progress_percentage = progress
                 
-                # FIX: Check for course completion
+                # Check for course completion
                 if progress == 100:
                     enrollment.status = 'completed'
                     enrollment.completion_date = timezone.now().date()
@@ -772,7 +800,7 @@ def take_quiz(request, quiz_id):
                         Notification.objects.create(
                             user=enrollment.user,
                             notification_type='completion',
-                            title='🎉 Course Completed!',
+                            title='Course Completed!',
                             message=f'Congratulations! You completed "{enrollment.course.title}". Your certificate is pending approval.',
                             link=reverse('dashboard:certifications')
                         )
@@ -787,17 +815,53 @@ def take_quiz(request, quiz_id):
                                 message=f'{enrollment.user.get_full_name() or enrollment.user.username} completed "{enrollment.course.title}"',
                                 link=reverse('dashboard:certifications')
                             )
-                        
-                        messages.success(request, '🎓 Course completed! Your certificate is pending approval.')
                 
                 enrollment.save()
         else:
-            messages.warning(
-                request,
-                f'You scored {percentage_score}% (Pass mark: {quiz.pass_mark}%). Score: {score}/{total_questions}. Please try again to improve your score.'
-            )
+            enrollment.save()
         
-        return redirect('dashboard:course_detail', course_id=quiz.material.course.id)
+        # Build results data for review
+        results = []
+        for question in questions:
+            answer = quiz_attempt.answers.filter(question=question).first()
+            user_answer_text = ''
+            is_correct = False
+            correct_answer_text = ''
+            
+            if question.question_type == 'multiple_choice':
+                if answer and answer.choice:
+                    user_answer_text = answer.choice.text
+                    is_correct = answer.choice.is_correct
+                # Get correct choice
+                correct_choice = question.choices.filter(is_correct=True).first()
+                correct_answer_text = correct_choice.text if correct_choice else 'N/A'
+            else:
+                if answer:
+                    user_answer_text = answer.text_answer
+                    is_correct = user_answer_text.strip().lower() == question.correct_answer.strip().lower()
+                correct_answer_text = question.correct_answer
+            
+            results.append({
+                'question': question,
+                'user_answer': user_answer_text,
+                'correct_answer': correct_answer_text,
+                'is_correct': is_correct,
+            })
+        
+        # Render results page instead of redirecting
+        context = {
+            'quiz': quiz,
+            'enrollment': enrollment,
+            'score': score,
+            'total_questions': total_questions,
+            'percentage_score': percentage_score,
+            'passed': passed,
+            'pass_mark': quiz.pass_mark,
+            'results': results,
+            'attempt': quiz_attempt,
+        }
+        
+        return render(request, 'dashboard/quiz_results.html', context)
     
     # GET request - show quiz
     context = {
@@ -924,6 +988,7 @@ def manage_quiz(request, material_id):
 
         context = {
             'material': material,
+            'quiz': quiz,
             'questions': questions,
         }
         return render(request, 'dashboard/manage_quiz.html', context)
@@ -2384,11 +2449,17 @@ def download_all_materials(request, course_id):
 def view_material(request, enrollment_id, material_id):
     """
     View a training material in-browser and mark as complete when viewed
+    Admins can view any material; regular users must be enrolled
     """
-    enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
+    # Admins can view any enrollment's material
+    if request.user.is_superuser:
+        enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+    else:
+        enrollment = get_object_or_404(Enrollment, id=enrollment_id, user=request.user)
+    
     material = get_object_or_404(TrainingMaterial, id=material_id, course=enrollment.course)
     
-    # Check if already completed
+    # Check if already completed (only relevant for enrolled users)
     is_completed = material.id in enrollment.completed_materials.values_list('id', flat=True)
     
     # Get file type
@@ -2398,12 +2469,16 @@ def view_material(request, enrollment_id, material_id):
     viewable_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.mp4', '.webm', '.wmv']
     is_viewable = file_extension in viewable_extensions
     
+    # For admins, mark as admin viewing (no progress tracking)
+    is_admin_viewing = request.user.is_superuser and enrollment.user != request.user
+    
     context = {
         'enrollment': enrollment,
         'material': material,
         'is_completed': is_completed,
         'is_viewable': is_viewable,
         'file_extension': file_extension,
+        'is_admin_viewing': is_admin_viewing,
     }
     
     return render(request, 'dashboard/view_material.html', context)
