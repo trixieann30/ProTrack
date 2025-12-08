@@ -17,27 +17,27 @@
     <form method="post">
         {% csrf_token %}
         <div class="mb-3">
-            <label for="title" class="form-label">Title</label>
+            <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
             <input type="text" id="title" name="title" class="form-control" required>
         </div>
 
         <div class="mb-3">
-            <label for="description" class="form-label">Description</label>
+            <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
             <textarea id="description" name="description" class="form-control" rows="4" required></textarea>
         </div>
 
         <div class="mb-3">
-            <label for="instructor" class="form-label">Instructor</label>
+            <label for="instructor" class="form-label">Instructor <span class="text-danger">*</span></label>
             <input type="text" id="instructor" name="instructor" class="form-control" required>
         </div>
 
         <div class="mb-3">
-            <label for="duration_hours" class="form-label">Duration (hours)</label>
+            <label for="duration_hours" class="form-label">Duration (hours) <span class="text-danger">*</span></label>
             <input type="number" id="duration_hours" name="duration_hours" class="form-control" min="1" required>
         </div>
 
         <div class="mb-3">
-            <label for="level" class="form-label">Level</label>
+            <label for="level" class="form-label">Level <span class="text-danger">*</span></label>
             <select id="level" name="level" class="form-select" required>
                 {% for value, label in level_choices %}
                 <option value="{{ value }}">{{ label }}</option>
