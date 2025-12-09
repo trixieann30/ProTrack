@@ -270,13 +270,7 @@
             <tr>
                 <td>
                     <div class="user-info">
-                        {% if user.profile_picture %}
-                            <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" class="user-avatar">
-                        {% else %}
-                            <div class="user-avatar-placeholder">
-                                {{ user.username|slice:":1"|upper }}
-                            </div>
-                        {% endif %}
+                        <img src="{{ user.get_profile_picture_url }}" alt="{{ user.username }}" class="user-avatar">
                         <div>
                             <div style="font-weight: 600;">{{ user.get_full_name|default:user.username }}</div>
                             <div style="font-size: 0.85rem; color: #6b7280;">@{{ user.username }}</div>

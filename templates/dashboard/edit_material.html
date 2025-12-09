@@ -65,7 +65,7 @@
                                         <h6 class="card-title">Material Information</h6>
                                         <p class="mb-1"><strong>Type:</strong> {{ material.get_material_type_display }}</p>
                                         <p class="mb-1"><strong>Course:</strong> {{ material.course.title }}</p>
-                                        <p class="mb-1"><strong>Uploaded by:</strong> {{ material.uploaded_by.get_full_name|default:material.uploaded_by.username }}</p>
+                                        <p class="mb-1"><strong>Uploaded by:</strong> {% if material.uploaded_by %}{{ material.uploaded_by.get_full_name|default:material.uploaded_by.username }}{% else %}Unknown{% endif %}</p>
                                         <p class="mb-1"><strong>Upload date:</strong> {{ material.uploaded_at|date:"M d, Y H:i" }}</p>
                                         {% if material.material_type != 'quiz' %}
                                         <p class="mb-0"><strong>File URL:</strong>
