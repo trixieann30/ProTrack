@@ -238,9 +238,21 @@ class Quiz(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     pass_mark = models.PositiveIntegerField(default=50, validators=[MaxValueValidator(100)])
+    target_question_count = models.PositiveIntegerField(default=10, help_text='Number of questions to add')
+    is_published = models.BooleanField(default=False, help_text='Whether the quiz is ready for users to take')
 
     def __str__(self):
         return self.title
+    
+    def is_ready(self):
+        """Check if quiz has enough questions and is published."""
+        return self.is_published and self.questions.count() >= self.target_question_count
+    
+    def get_progress(self):
+        """Get the progress of question creation."""
+        current = self.questions.count()
+        target = self.target_question_count
+        return {'current': current, 'target': target, 'percentage': min(100, round((current / target) * 100)) if target > 0 else 0}
 
 class Question(models.Model):
     QUESTION_TYPES = (

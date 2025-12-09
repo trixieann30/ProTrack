@@ -93,15 +93,28 @@ def user_dashboard(request):
     ).order_by('-enrolled_date')[:5])
     
     # Calculate completion rate for each active enrollment (same as my_training)
-    # Also sync status with progress
+    # Also sync status with progress - exclude unpublished quizzes
     for enrollment in active_enrollments:
         course = enrollment.course
-        total_items = course.materials.filter(is_required=True).count()
-        completed_items = enrollment.completed_materials.filter(is_required=True).count()
+        
+        # Get all required materials, but exclude unpublished quizzes
+        all_required_materials = course.materials.filter(is_required=True)
+        available_materials = []
+        for mat in all_required_materials:
+            if mat.material_type == 'quiz':
+                # Only count quiz if it's published
+                if hasattr(mat, 'quiz') and mat.quiz and mat.quiz.is_published:
+                    available_materials.append(mat.id)
+            else:
+                available_materials.append(mat.id)
+        
+        total_items = len(available_materials)
+        completed_items = enrollment.completed_materials.filter(id__in=available_materials).count()
+        
         if total_items > 0:
             enrollment.completion_rate = round((completed_items / total_items) * 100)
         else:
-            # Fall back to progress_percentage if no required materials
+            # Fall back to progress_percentage if no available materials
             enrollment.completion_rate = enrollment.progress_percentage
         
         # Auto-sync: If progress is 100% but status is not completed, update it
@@ -616,17 +629,29 @@ def my_training(request):
 
     # ----------------------------------------------------
     # FIX: Calculate completion rate for each enrollment and sync status
+    # Exclude unpublished quizzes from total count
     # ----------------------------------------------------
     for enrollment in all_enrollments:
         course = enrollment.course
 
-        total_items = course.materials.filter(is_required=True).count()
-        completed_items = enrollment.completed_materials.filter(is_required=True).count()
+        # Get all required materials, but exclude unpublished quizzes
+        all_required_materials = course.materials.filter(is_required=True)
+        available_materials = []
+        for mat in all_required_materials:
+            if mat.material_type == 'quiz':
+                # Only count quiz if it's published
+                if hasattr(mat, 'quiz') and mat.quiz and mat.quiz.is_published:
+                    available_materials.append(mat.id)
+            else:
+                available_materials.append(mat.id)
+        
+        total_items = len(available_materials)
+        completed_items = enrollment.completed_materials.filter(id__in=available_materials).count()
 
         if total_items > 0:
             enrollment.completion_rate = round((completed_items / total_items) * 100)
         else:
-            # Fall back to progress_percentage if no required materials
+            # Fall back to progress_percentage if no available required materials
             enrollment.completion_rate = enrollment.progress_percentage
         
         # Auto-sync: If progress is 100% but status is not completed, update it
@@ -686,6 +711,16 @@ def take_quiz(request, quiz_id):
     """Take a quiz and calculate score"""
     quiz = get_object_or_404(Quiz, id=quiz_id)
     questions = quiz.questions.all().prefetch_related('choices')
+    
+    # Check if quiz is published
+    if not quiz.is_published:
+        messages.error(request, 'This quiz is currently being edited and is not available yet.')
+        return redirect('dashboard:course_detail', course_id=quiz.material.course.id)
+    
+    # Check if quiz has questions
+    if not questions.exists():
+        messages.error(request, 'This quiz has no questions configured yet.')
+        return redirect('dashboard:course_detail', course_id=quiz.material.course.id)
     
     # Get user's enrollment for this course
     enrollment = get_object_or_404(
@@ -901,6 +936,52 @@ def manage_quiz(request, material_id):
                     if is_ajax:
                         return JsonResponse({'success': True, 'pass_mark': quiz.pass_mark, 'message': 'Pass mark updated successfully.'})
                     messages.success(request, 'Pass mark updated successfully.')
+
+            elif action == 'update_settings':
+                # Update quiz settings including target question count and pass mark
+                pass_mark = request.POST.get('pass_mark')
+                target_count = request.POST.get('target_question_count')
+                logger.info(f"Updating quiz settings: pass_mark={pass_mark}, target_count={target_count}")
+                
+                if pass_mark is not None:
+                    quiz.pass_mark = int(pass_mark)
+                if target_count is not None:
+                    quiz.target_question_count = int(target_count)
+                quiz.save()
+                
+                if is_ajax:
+                    return JsonResponse({
+                        'success': True,
+                        'pass_mark': quiz.pass_mark,
+                        'target_question_count': quiz.target_question_count,
+                        'message': 'Quiz settings updated successfully.'
+                    })
+                messages.success(request, 'Quiz settings updated successfully.')
+
+            elif action == 'publish_quiz':
+                # Publish the quiz if it has enough questions
+                current_count = quiz.questions.count()
+                if current_count >= quiz.target_question_count:
+                    quiz.is_published = True
+                    quiz.save()
+                    if is_ajax:
+                        return JsonResponse({'success': True, 'is_published': True, 'message': 'Quiz published successfully.'})
+                    messages.success(request, 'Quiz published successfully. Users can now take the quiz.')
+                else:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': False,
+                            'message': f'Cannot publish. Need at least {quiz.target_question_count} questions, currently have {current_count}.'
+                        })
+                    messages.error(request, f'Cannot publish. Need at least {quiz.target_question_count} questions, currently have {current_count}.')
+
+            elif action == 'unpublish_quiz':
+                # Unpublish the quiz to edit it
+                quiz.is_published = False
+                quiz.save()
+                if is_ajax:
+                    return JsonResponse({'success': True, 'is_published': False, 'message': 'Quiz unpublished. You can now edit it.'})
+                messages.success(request, 'Quiz unpublished. You can now continue editing.')
 
             elif action == 'edit_question':
                 question_id = request.POST.get('question_id')
