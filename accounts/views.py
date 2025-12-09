@@ -147,7 +147,7 @@ def edit_profile(request):
             form.save()
 
             messages.success(request, "Your profile has been updated!")
-            return redirect('accounts:profile')
+            return redirect('accounts:edit_profile')
 
     else:
         # Pre-populate CustomUser values
@@ -253,5 +253,4 @@ logger = logging.getLogger(__name__)
 def custom_logout(request):
     """Logout the user and redirect to home page"""
     logout(request)
-    messages.success(request, "You have been successfully logged out.")
     return redirect('home')

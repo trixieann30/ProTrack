@@ -256,35 +256,48 @@
 
                     <div class="d-flex align-items-center gap-2 ms-auto">
                         {% if user.is_superuser %}
-                            {% if material.material_type == 'quiz' and material.quiz %}
+                            {% if material.material_type == 'quiz' %}
                                 <a href="{% url 'dashboard:manage_quiz' material.id %}" class="btn btn-sm btn-primary"><i class="fas fa-cogs me-1"></i>Manage</a>
+                                {% if material.quiz %}
+                                    {% if material.quiz.is_published %}
+                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>Published</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark"><i class="fas fa-edit me-1"></i>Editing</span>
+                                    {% endif %}
+                                {% endif %}
                             {% else %}
                                 {% if course.enrollments.exists %}
                                 <a href="{% url 'dashboard:view_material' course.enrollments.first.id material.id %}" class="btn btn-sm btn-primary"><i class="fas fa-eye me-1"></i>View</a>
                                 {% endif %}
                             {% endif %}
                             <a href="{% url 'dashboard:edit_material' material.id %}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                            {% if material.material_type != 'quiz' %}
                             <a href="{{ material.file_url }}" target="_blank" class="btn btn-sm btn-outline-secondary" download="{{ material.file_name }}"><i class="fas fa-download"></i></a>
+                            {% endif %}
                             <button class="btn btn-sm btn-outline-danger" onclick="deleteMaterial({{ material.id }}, '{{ material.title }}')"><i class="fas fa-trash"></i></button>
                         {% elif is_enrolled %}
                             {% if material.material_type == 'quiz' %}
-                                {% if material.quiz %}
+                                {% if material.quiz and material.quiz.is_published and material.quiz.questions.exists %}
                                     {% if material.id in completed_materials_ids %}
                                     <a href="{% url 'dashboard:take_quiz' material.quiz.id %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-redo me-1"></i>Retake</a>
+                                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Passed</span>
                                     {% else %}
                                     <a href="{% url 'dashboard:take_quiz' material.quiz.id %}" class="btn btn-sm btn-primary"><i class="fas fa-pencil-alt me-1"></i>Start</a>
+                                    <span class="badge bg-secondary"><i class="fas fa-circle me-1"></i>Pending</span>
                                     {% endif %}
+                                {% elif material.quiz and not material.quiz.is_published %}
+                                    <span class="badge bg-info text-dark"><i class="fas fa-edit me-1"></i>Being Edited</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Coming Soon</span>
                                 {% endif %}
                             {% else %}
                                 <a href="{% url 'dashboard:view_material' enrollment.id material.id %}" class="btn btn-sm btn-primary"><i class="fas fa-eye me-1"></i>View</a>
                                 <a href="{{ material.file_url }}" target="_blank" class="btn btn-sm btn-outline-secondary" download="{{ material.file_name }}"><i class="fas fa-download me-1"></i>Download</a>
-                            {% endif %}
-                            {% if material.material_type == 'quiz' and not material.quiz %}
-                                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Coming Soon</span>
-                            {% elif material.id in completed_materials_ids %}
-                                <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>{% if material.material_type == 'quiz' %}Passed{% else %}Completed{% endif %}</span>
-                            {% else %}
-                                <span class="badge bg-secondary"><i class="fas fa-circle me-1"></i>Pending</span>
+                                {% if material.id in completed_materials_ids %}
+                                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Completed</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="fas fa-circle me-1"></i>Pending</span>
+                                {% endif %}
                             {% endif %}
                         {% endif %}
                     </div>
@@ -433,4 +446,106 @@
         </div>
     </div>
 </div>
+
+<!-- Upload Material Modal -->
+{% if user.is_superuser %}
+<div class="modal fade" id="uploadMaterialModal" tabindex="-1" aria-labelledby="uploadMaterialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadMaterialModalLabel">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>Upload Training Material
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="uploadMaterialForm" method="post" action="{% url 'dashboard:upload_material' course.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="materialTitle" class="form-label">Title *</label>
+                        <input type="text" class="form-control" id="materialTitle" name="title" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="materialDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="materialDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="materialType" class="form-label">Material Type *</label>
+                        <select class="form-select" id="materialType" name="material_type" required>
+                            <option value="document">Document (PDF, DOC, DOCX, TXT)</option>
+                            <option value="video">Video (MP4, AVI, MOV, WEBM)</option>
+                            <option value="presentation">Presentation (PPT, PPTX)</option>
+                            <option value="quiz">Quiz</option>
+                            <option value="other">Other (ZIP, RAR)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="fileUploadSection">
+                        <label for="materialFile" class="form-label">File *</label>
+                        <input type="file" class="form-control" id="materialFile" name="file">
+                        <small class="text-muted">Maximum file size: 50MB</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="materialOrder" class="form-label">Display Order</label>
+                        <input type="number" class="form-control" id="materialOrder" name="order" value="0" min="0">
+                        <small class="text-muted">Lower numbers appear first</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="uploadBtn">
+                        <i class="fas fa-upload me-2"></i>Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle file upload section based on material type
+document.getElementById('materialType')?.addEventListener('change', function() {
+    const fileSection = document.getElementById('fileUploadSection');
+    const fileInput = document.getElementById('materialFile');
+    
+    if (this.value === 'quiz') {
+        fileSection.style.display = 'none';
+        fileInput.removeAttribute('required');
+    } else {
+        fileSection.style.display = 'block';
+        fileInput.setAttribute('required', 'required');
+    }
+});
+
+// Delete material confirmation
+function deleteMaterial(materialId, materialTitle) {
+    if (confirm('Are you sure you want to delete "' + materialTitle + '"? This cannot be undone.')) {
+        fetch('{% url "dashboard:delete_material" 0 %}'.replace('0', materialId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to delete material'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to delete material');
+        });
+    }
+}
+</script>
 {% endblock %}

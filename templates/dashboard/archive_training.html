@@ -178,10 +178,15 @@
             <div class="col">
                 <div class="course-card">
                     <div class="course-thumbnail">
-                        {% if course.icon_class %}
-                            <i class="fas {{ course.icon_class }}"></i>
+                        {% if course.thumbnail %}
+                            <img src="{{ course.thumbnail }}" alt="{{ course.title }}" 
+                                style="width: 100%; height: 100%; object-fit: cover;">
                         {% else %}
-                            <i class="fas fa-book"></i>
+                            {% if course.category.icon %}
+                                <i class="fas {{ course.category.icon }}"></i>
+                            {% else %}
+                                <i class="fas fa-book"></i>
+                            {% endif %}
                         {% endif %}
                         <span class="course-level-badge {{ course.level|lower }}">
                             {{ course.get_level_display }}
