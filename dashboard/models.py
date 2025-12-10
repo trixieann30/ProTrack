@@ -643,3 +643,119 @@ class Notification(models.Model):
                 print(f"❌ Failed to send certificate email: {e}")
         
         return notification
+
+
+class CalendarEvent(models.Model):
+    """User-created calendar events/tasks with reminders"""
+    EVENT_TYPES = (
+        ('event', 'Event'),
+        ('task', 'Task'),
+        ('reminder', 'Reminder'),
+    )
+    
+    REMINDER_CHOICES = (
+        (0, 'At time of event'),
+        (5, '5 minutes before'),
+        (15, '15 minutes before'),
+        (30, '30 minutes before'),
+        (60, '1 hour before'),
+        (1440, '1 day before'),
+    )
+    
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='calendar_events'
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPES, default='event')
+    event_date = models.DateField()
+    event_time = models.TimeField()
+    end_time = models.TimeField(null=True, blank=True)
+    reminder_minutes = models.IntegerField(
+        choices=REMINDER_CHOICES,
+        default=15,
+        help_text='When to send reminder notification'
+    )
+    reminder_sent = models.BooleanField(default=False)
+    color = models.CharField(max_length=7, default='#667eea', help_text='Event color in hex format')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['event_date', 'event_time']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.title} ({self.event_date})"
+    
+    def get_reminder_datetime(self):
+        """Get the datetime when reminder should be sent."""
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+        
+        event_datetime = datetime.combine(self.event_date, self.event_time)
+        reminder_datetime = event_datetime - timedelta(minutes=self.reminder_minutes)
+        return timezone.make_aware(reminder_datetime)
+    
+    def create_reminder_notification(self):
+        """Create a reminder notification for this event (in-app and email based on preferences)."""
+        if self.reminder_sent:
+            return False
+        
+        from accounts.models import NotificationPreference
+        from django.core.mail import send_mail
+        from django.conf import settings as django_settings
+        
+        # Get user's notification preferences
+        prefs, _ = NotificationPreference.objects.get_or_create(user=self.user)
+        
+        title = f'Reminder: {self.title}'
+        message = f'Your {self.get_event_type_display().lower()} "{self.title}" is scheduled for {self.event_time.strftime("%I:%M %p")} on {self.event_date.strftime("%B %d, %Y")}.'
+        
+        if self.description:
+            message += f'\n\nDetails: {self.description}'
+        
+        # Create in-app notification if enabled
+        if prefs.notify_on_reminder:
+            Notification.objects.create(
+                user=self.user,
+                notification_type='reminder',
+                title=title,
+                message=message,
+                link='/dashboard/calendar/'
+            )
+            print(f'✅ In-app reminder notification created for {self.user.username}: {self.title}')
+        
+        # Send email notification if enabled
+        if prefs.email_on_reminder and self.user.email:
+            try:
+                email_message = f"""
+Hello {self.user.get_full_name() or self.user.username},
+
+This is a reminder for your upcoming {self.get_event_type_display().lower()}:
+
+📅 {self.title}
+🕐 {self.event_time.strftime("%I:%M %p")} on {self.event_date.strftime("%B %d, %Y")}
+
+{f"Details: {self.description}" if self.description else ""}
+
+View your calendar: {django_settings.SITE_URL}/dashboard/calendar/
+
+Best regards,
+The ProTrack Team
+"""
+                send_mail(
+                    subject=f'ProTrack: {title}',
+                    message=email_message,
+                    from_email=django_settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[self.user.email],
+                    fail_silently=True,
+                )
+                print(f'✅ Email reminder sent to {self.user.email}: {self.title}')
+            except Exception as e:
+                print(f'❌ Failed to send reminder email: {e}')
+        
+        self.reminder_sent = True
+        self.save()
+        return True

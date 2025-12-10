@@ -48,6 +48,12 @@ urlpatterns = [
     path('api/calendar-events/', views.get_calendar_events, name='calendar_events'),
     path('api/enrollment/update-completion/', views.update_enrollment_completion, name='update_enrollment_completion'),
     
+    # Calendar Event API (User-created events/tasks)
+    path('api/calendar/events/', views.get_user_calendar_events, name='get_user_calendar_events'),
+    path('api/calendar/events/create/', views.create_calendar_event, name='create_calendar_event'),
+    path('api/calendar/events/<int:event_id>/update/', views.update_calendar_event, name='update_calendar_event'),
+    path('api/calendar/events/<int:event_id>/delete/', views.delete_calendar_event, name='delete_calendar_event'),
+    
     # Settings URLs
     path('settings/', views.settings, name='settings'),
     path('settings/profile/', views.profile_settings, name='profile_settings'),

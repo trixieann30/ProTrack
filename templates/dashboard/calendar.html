@@ -2,6 +2,215 @@
 
 {% block extra_css %}
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+<style>
+/* Event Modal Styles */
+.event-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+    justify-content: center;
+    align-items: center;
+}
+
+.event-modal-overlay.show {
+    display: flex;
+}
+
+.event-modal {
+    background: white;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.event-modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.event-modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.event-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0.25rem;
+    line-height: 1;
+}
+
+.event-modal-close:hover {
+    color: #1f2937;
+}
+
+.event-modal-body {
+    padding: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color, #667eea);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.color-picker-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.color-option {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+}
+
+.color-option.selected {
+    border-color: #1f2937;
+}
+
+.event-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.btn-cancel {
+    padding: 0.625rem 1.25rem;
+    background: #f3f4f6;
+    color: #374151;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+    background: #e5e7eb;
+}
+
+.btn-save {
+    padding: 0.625rem 1.25rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn-save:hover {
+    opacity: 0.9;
+}
+
+.btn-delete {
+    padding: 0.625rem 1.25rem;
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-right: auto;
+}
+
+.btn-delete:hover {
+    background: #fecaca;
+}
+
+/* Calendar customizations */
+.fc-event {
+    cursor: pointer;
+}
+
+.fc-day:hover {
+    background: rgba(102, 126, 234, 0.05);
+    cursor: pointer;
+}
+
+/* Year navigation buttons */
+.fc-prevYear-button,
+.fc-nextYear-button {
+    font-weight: 600 !important;
+}
+
+.fc-prevYear-button::before {
+    content: '\00AB';
+    margin-right: 2px;
+}
+
+.fc-nextYear-button::after {
+    content: '\00BB';
+    margin-left: 2px;
+}
+
+.fc-toolbar-title {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -9,14 +218,104 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h2 class="mb-1">
-            <i class="fas fa-pencil me-2" style="color: var(--primary-color);"></i>
+            <i class="fas fa-calendar-alt me-2" style="color: var(--primary-color);"></i>
             Calendar
         </h2>
+        <p class="text-muted mb-0">Click on any day to add an event or task</p>
     </div>
+    <button class="btn btn-primary" onclick="openEventModal()">
+        <i class="fas fa-plus me-2"></i>Add Event
+    </button>
 </div>
     <div class="card shadow mb-4">
         <div class="card-body">
             <div id="calendar"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Modal -->
+<div id="eventModalOverlay" class="event-modal-overlay">
+    <div class="event-modal">
+        <div class="event-modal-header">
+            <h3 id="eventModalTitle">Add Event</h3>
+            <button class="event-modal-close" onclick="closeEventModal()">&times;</button>
+        </div>
+        <div class="event-modal-body">
+            <form id="eventForm">
+                <input type="hidden" id="eventId" value="">
+                
+                <div class="form-group">
+                    <label for="eventTitle">Title *</label>
+                    <input type="text" id="eventTitle" placeholder="Enter event title" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="eventType">Type</label>
+                    <select id="eventType">
+                        <option value="event">Event</option>
+                        <option value="task">Task</option>
+                        <option value="reminder">Reminder</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="eventDate">Date *</label>
+                    <input type="date" id="eventDate" required>
+                    <small id="dateError" class="text-danger" style="display: none;">Cannot select a past date</small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="eventTime">Start Time *</label>
+                        <input type="time" id="eventTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="eventEndTime">End Time</label>
+                        <input type="time" id="eventEndTime">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="eventReminder">Reminder</label>
+                    <select id="eventReminder">
+                        <option value="0">At time of event</option>
+                        <option value="5">5 minutes before</option>
+                        <option value="15" selected>15 minutes before</option>
+                        <option value="30">30 minutes before</option>
+                        <option value="60">1 hour before</option>
+                        <option value="1440">1 day before</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="eventDescription">Description</label>
+                    <textarea id="eventDescription" rows="3" placeholder="Add details..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Color</label>
+                    <div class="color-picker-row">
+                        <div class="color-option selected" style="background: #667eea;" data-color="#667eea"></div>
+                        <div class="color-option" style="background: #10b981;" data-color="#10b981"></div>
+                        <div class="color-option" style="background: #f59e0b;" data-color="#f59e0b"></div>
+                        <div class="color-option" style="background: #ef4444;" data-color="#ef4444"></div>
+                        <div class="color-option" style="background: #8b5cf6;" data-color="#8b5cf6"></div>
+                        <div class="color-option" style="background: #06b6d4;" data-color="#06b6d4"></div>
+                        <div class="color-option" style="background: #ec4899;" data-color="#ec4899"></div>
+                        <div class="color-option" style="background: #6b7280;" data-color="#6b7280"></div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="event-modal-footer">
+            <button type="button" class="btn-delete" id="deleteEventBtn" style="display: none;" onclick="deleteEvent()">
+                <i class="fas fa-trash me-1"></i>Delete
+            </button>
+            <button type="button" class="btn-cancel" onclick="closeEventModal()">Cancel</button>
+            <button type="button" class="btn-save" onclick="saveEvent()">
+                <i class="fas fa-check me-1"></i>Save
+            </button>
         </div>
     </div>
 </div>
@@ -25,6 +324,9 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
 <script>
+    let calendar;
+    let selectedColor = '#667eea';
+    
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -39,49 +341,312 @@
         }
         return cookieValue;
     }
-</script>
-<script>
+    
+    // Color picker functionality
+    document.querySelectorAll('.color-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedColor = this.dataset.color;
+        });
+    });
+    
+    // Set minimum date to today
+    function setMinDate() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('eventDate').setAttribute('min', today);
+    }
+    
+    // Validate date/time is not in the past
+    function validateDateTime() {
+        const eventId = document.getElementById('eventId').value;
+        if (eventId) return true; // Skip validation for editing existing events
+        
+        const eventDate = document.getElementById('eventDate').value;
+        const eventTime = document.getElementById('eventTime').value;
+        const dateError = document.getElementById('dateError');
+        const saveBtn = document.querySelector('.btn-save');
+        
+        if (eventDate && eventTime) {
+            const eventDateTime = new Date(`${eventDate}T${eventTime}`);
+            const now = new Date();
+            
+            if (eventDateTime < now) {
+                dateError.style.display = 'block';
+                dateError.textContent = 'Cannot select a past date/time';
+                saveBtn.disabled = true;
+                saveBtn.style.opacity = '0.5';
+                return false;
+            }
+        }
+        
+        dateError.style.display = 'none';
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = '1';
+        return true;
+    }
+    
+    // Add event listeners for real-time validation
+    document.getElementById('eventDate').addEventListener('change', validateDateTime);
+    document.getElementById('eventTime').addEventListener('change', validateDateTime);
+    
+    function openEventModal(dateStr = null, eventData = null) {
+        const modal = document.getElementById('eventModalOverlay');
+        const modalTitle = document.getElementById('eventModalTitle');
+        const deleteBtn = document.getElementById('deleteEventBtn');
+        const dateError = document.getElementById('dateError');
+        const saveBtn = document.querySelector('.btn-save');
+        
+        // Reset form
+        document.getElementById('eventForm').reset();
+        document.getElementById('eventId').value = '';
+        
+        // Reset validation state
+        dateError.style.display = 'none';
+        saveBtn.disabled = false;
+        saveBtn.style.opacity = '1';
+        
+        // Set minimum date to today for new events
+        setMinDate();
+        
+        // Reset color selection
+        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+        document.querySelector('.color-option[data-color="#667eea"]').classList.add('selected');
+        selectedColor = '#667eea';
+        
+        if (eventData) {
+            // Edit mode
+            modalTitle.textContent = 'Edit Event';
+            deleteBtn.style.display = 'block';
+            
+            document.getElementById('eventId').value = eventData.id.replace('user_event_', '');
+            document.getElementById('eventTitle').value = eventData.title;
+            document.getElementById('eventType').value = eventData.extendedProps.event_type || 'event';
+            document.getElementById('eventDescription').value = eventData.extendedProps.description || '';
+            document.getElementById('eventReminder').value = eventData.extendedProps.reminder_minutes || 15;
+            
+            // Parse date and time from start
+            const startDate = new Date(eventData.start);
+            document.getElementById('eventDate').value = startDate.toISOString().split('T')[0];
+            document.getElementById('eventTime').value = startDate.toTimeString().slice(0, 5);
+            
+            if (eventData.end) {
+                const endDate = new Date(eventData.end);
+                document.getElementById('eventEndTime').value = endDate.toTimeString().slice(0, 5);
+            }
+            
+            // Set color
+            const eventColor = eventData.color || '#667eea';
+            document.querySelectorAll('.color-option').forEach(o => {
+                o.classList.remove('selected');
+                if (o.dataset.color === eventColor) {
+                    o.classList.add('selected');
+                    selectedColor = eventColor;
+                }
+            });
+        } else {
+            // Add mode
+            modalTitle.textContent = 'Add Event';
+            deleteBtn.style.display = 'none';
+            
+            if (dateStr) {
+                document.getElementById('eventDate').value = dateStr;
+            } else {
+                document.getElementById('eventDate').value = new Date().toISOString().split('T')[0];
+            }
+            
+            // Default time to current hour
+            const now = new Date();
+            document.getElementById('eventTime').value = now.toTimeString().slice(0, 5);
+        }
+        
+        modal.classList.add('show');
+    }
+    
+    function closeEventModal() {
+        document.getElementById('eventModalOverlay').classList.remove('show');
+    }
+    
+    function saveEvent() {
+        const eventId = document.getElementById('eventId').value;
+        const title = document.getElementById('eventTitle').value.trim();
+        const eventType = document.getElementById('eventType').value;
+        const eventDate = document.getElementById('eventDate').value;
+        const eventTime = document.getElementById('eventTime').value;
+        const endTime = document.getElementById('eventEndTime').value;
+        const reminder = document.getElementById('eventReminder').value;
+        const description = document.getElementById('eventDescription').value;
+        
+        if (!title || !eventDate || !eventTime) {
+            alert('Please fill in the required fields (Title, Date, Time)');
+            return;
+        }
+        
+        // Validate that event is not in the past (only for new events)
+        if (!eventId) {
+            const eventDateTime = new Date(`${eventDate}T${eventTime}`);
+            const now = new Date();
+            if (eventDateTime < now) {
+                alert('Cannot create events in the past. Please select a future date and time.');
+                return;
+            }
+        }
+        
+        const data = {
+            title: title,
+            event_type: eventType,
+            event_date: eventDate,
+            event_time: eventTime,
+            end_time: endTime || null,
+            reminder_minutes: parseInt(reminder),
+            description: description,
+            color: selectedColor
+        };
+        
+        const url = eventId 
+            ? `/dashboard/api/calendar/events/${eventId}/update/`
+            : '/dashboard/api/calendar/events/create/';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                closeEventModal();
+                calendar.refetchEvents();
+            } else {
+                alert('Error: ' + (result.error || 'Could not save event'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving the event.');
+        });
+    }
+    
+    function deleteEvent() {
+        const eventId = document.getElementById('eventId').value;
+        if (!eventId) return;
+        
+        if (!confirm('Are you sure you want to delete this event?')) return;
+        
+        fetch(`/dashboard/api/calendar/events/${eventId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                closeEventModal();
+                calendar.refetchEvents();
+            } else {
+                alert('Error: ' + (result.error || 'Could not delete event'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the event.');
+        });
+    }
+    
+    // Close modal when clicking outside
+    document.getElementById('eventModalOverlay').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeEventModal();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeEventModal();
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
-        var calendar = new FullCalendar.Calendar(calendarEl, {
+        calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             headerToolbar: {
-                left: 'prev,next today',
+                left: 'prevYear,prev,next,nextYear today',
                 center: 'title',
                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
             },
-            events: '/dashboard/api/calendar-events/',
+            buttonText: {
+                today: 'Today',
+                month: 'Month',
+                week: 'Week',
+                day: 'Day'
+            },
+            buttonIcons: {
+                prevYear: 'chevrons-left',
+                nextYear: 'chevrons-right'
+            },
+            eventSources: [
+                { url: '/dashboard/api/calendar-events/' },
+                { url: '/dashboard/api/calendar/events/' }
+            ],
             editable: true,
+            selectable: true,
+            dateClick: function(info) {
+                openEventModal(info.dateStr);
+            },
+            eventClick: function(info) {
+                // Only handle user events (not training events)
+                if (info.event.extendedProps.is_user_event) {
+                    info.jsEvent.preventDefault();
+                    openEventModal(null, {
+                        id: info.event.id,
+                        title: info.event.title,
+                        start: info.event.start,
+                        end: info.event.end,
+                        color: info.event.backgroundColor,
+                        extendedProps: info.event.extendedProps
+                    });
+                }
+            },
             eventResize: function(info) {
-                const enrollmentId = info.event.id;
-                const newCompletionDate = info.event.end.toISOString().split('T')[0];
+                // Only handle enrollment events (legacy behavior)
+                if (!info.event.extendedProps.is_user_event) {
+                    const enrollmentId = info.event.id;
+                    const newCompletionDate = info.event.end.toISOString().split('T')[0];
 
-                fetch('/dashboard/api/enrollment/update-completion/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken'),
-                    },
-                    body: JSON.stringify({
-                        id: enrollmentId,
-                        completion_date: newCompletionDate,
-                    }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        console.log('Finish date updated successfully');
-                        info.event.setProp('color', '#3b82f6'); // Set color to darker blue
-                    } else {
+                    fetch('/dashboard/api/enrollment/update-completion/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken'),
+                        },
+                        body: JSON.stringify({
+                            id: enrollmentId,
+                            completion_date: newCompletionDate,
+                        }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('Finish date updated successfully');
+                            info.event.setProp('color', '#3b82f6');
+                        } else {
+                            info.revert();
+                            alert('Could not update finish date: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
                         info.revert();
-                        alert('Could not update finish date: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    info.revert();
-                    alert('An error occurred while updating the finish date.');
-                    console.error('Error:', error);
-                });
+                        alert('An error occurred while updating the finish date.');
+                        console.error('Error:', error);
+                    });
+                }
             },
         });
         calendar.render();
