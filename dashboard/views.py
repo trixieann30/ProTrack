@@ -36,6 +36,7 @@ from .models import (
     QuizAttempt,
     Answer,
     TrainingSession,
+    CalendarEvent,
 )
 
 from django.http import JsonResponse, FileResponse, Http404
@@ -1871,6 +1872,157 @@ def update_enrollment_completion(request):
         return JsonResponse({'success': False, 'error': 'Invalid data format'}, status=400)
     except Enrollment.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Enrollment not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+# ============ CALENDAR EVENT API ENDPOINTS ============
+
+@login_required
+@require_POST
+def create_calendar_event(request):
+    """API endpoint to create a new calendar event/task."""
+    try:
+        data = json.loads(request.body)
+        
+        title = data.get('title', '').strip()
+        if not title:
+            return JsonResponse({'success': False, 'error': 'Title is required'}, status=400)
+        
+        event_date = data.get('event_date')
+        event_time = data.get('event_time')
+        
+        if not event_date or not event_time:
+            return JsonResponse({'success': False, 'error': 'Date and time are required'}, status=400)
+        
+        # Parse date and time
+        try:
+            parsed_date = datetime.strptime(event_date, '%Y-%m-%d').date()
+            parsed_time = datetime.strptime(event_time, '%H:%M').time()
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Invalid date or time format'}, status=400)
+        
+        # Validate that event is not in the past
+        event_datetime = datetime.combine(parsed_date, parsed_time)
+        now = datetime.now()
+        if event_datetime < now:
+            return JsonResponse({'success': False, 'error': 'Cannot create events in the past'}, status=400)
+        
+        # Parse end time if provided
+        end_time = None
+        if data.get('end_time'):
+            try:
+                end_time = datetime.strptime(data.get('end_time'), '%H:%M').time()
+            except ValueError:
+                pass
+        
+        # Create the event
+        event = CalendarEvent.objects.create(
+            user=request.user,
+            title=title,
+            description=data.get('description', ''),
+            event_type=data.get('event_type', 'event'),
+            event_date=parsed_date,
+            event_time=parsed_time,
+            end_time=end_time,
+            reminder_minutes=int(data.get('reminder_minutes', 15)),
+            color=data.get('color', '#667eea')
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'event': {
+                'id': event.id,
+                'title': event.title,
+                'start': f"{event.event_date}T{event.event_time}",
+                'end': f"{event.event_date}T{event.end_time}" if event.end_time else None,
+                'color': event.color,
+                'extendedProps': {
+                    'event_type': event.event_type,
+                    'description': event.description,
+                    'reminder_minutes': event.reminder_minutes
+                }
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def get_user_calendar_events(request):
+    """API endpoint to fetch user's calendar events."""
+    events = CalendarEvent.objects.filter(user=request.user)
+    
+    event_list = []
+    for event in events:
+        event_data = {
+            'id': f'user_event_{event.id}',
+            'title': event.title,
+            'start': f"{event.event_date}T{event.event_time}",
+            'color': event.color,
+            'extendedProps': {
+                'event_type': event.event_type,
+                'description': event.description,
+                'reminder_minutes': event.reminder_minutes,
+                'is_user_event': True
+            }
+        }
+        if event.end_time:
+            event_data['end'] = f"{event.event_date}T{event.end_time}"
+        
+        event_list.append(event_data)
+    
+    return JsonResponse(event_list, safe=False)
+
+
+@login_required
+@require_POST
+def update_calendar_event(request, event_id):
+    """API endpoint to update a calendar event."""
+    try:
+        event = get_object_or_404(CalendarEvent, id=event_id, user=request.user)
+        data = json.loads(request.body)
+        
+        # Update fields if provided
+        if 'title' in data:
+            event.title = data['title'].strip()
+        if 'description' in data:
+            event.description = data['description']
+        if 'event_type' in data:
+            event.event_type = data['event_type']
+        if 'event_date' in data:
+            event.event_date = datetime.strptime(data['event_date'], '%Y-%m-%d').date()
+        if 'event_time' in data:
+            event.event_time = datetime.strptime(data['event_time'], '%H:%M').time()
+        if 'end_time' in data and data['end_time']:
+            event.end_time = datetime.strptime(data['end_time'], '%H:%M').time()
+        if 'reminder_minutes' in data:
+            event.reminder_minutes = int(data['reminder_minutes'])
+            event.reminder_sent = False  # Reset reminder if time changed
+        if 'color' in data:
+            event.color = data['color']
+        
+        event.save()
+        
+        return JsonResponse({'success': True})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def delete_calendar_event(request, event_id):
+    """API endpoint to delete a calendar event."""
+    try:
+        event = get_object_or_404(CalendarEvent, id=event_id, user=request.user)
+        event.delete()
+        return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
       
